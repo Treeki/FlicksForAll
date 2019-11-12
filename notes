@@ -1,0 +1,241 @@
+	// https://iphonedevwiki.net/index.php/UIKBTree
+
+%hook UIKeyboardLayoutStar
+- (void)setLayoutTag:(NSString *)tag {
+	NSLog(@"UIKeyboardLayoutStar setLayout:%@", tag);
+	%orig;
+}
+%end
+
+%hook UIKBTree
+-(void)setLayoutTag:(NSString *)tag passingKeyTest:(id)test {
+	NSLog(@"UIKBTree %@ sets tag %@", [self description], tag);
+	%orig;
+}
+- (void)setGestureKey:(UIKBTree *)key {
+	NSLog(@"UIKBTree %@ sets gestureKey %@", [self description], [key description]);
+	%orig;
+}
+%end
+
+	// dual mode for iPad bottom right keys:
+	// displayType = 7 (dual string)
+	// interactionType = 2 (popup?)
+	// secondaryDisplayStrings, secondaryRepresentedStrings
+
+supports-continuous-path is a keyplane property
+
+boolForProperty: 32 = true, other = false??
+
+updateFlickKeycapOnKeys is where the gestures are combined
+
+keyboard {
+	keyplane* {
+		keylayout* {
+			keyset {
+				list* {
+					key*
+				}
+			}
+			geometryset
+			attributeset
+		}
+	}
+}
+
+Tree Types:
+1 Keyboard
+2 Keyplane
+3 Keylayout
+4 KeySet
+5 GeometrySet
+6 AttributeSet
+7 List
+8 Key
+9 Shape
+10 Attributes
+11 Identifiers
+12 AdaptiveKey
+13 MergePolicy
+14 Validator
+
+Interaction Types:
+0 None
+1 String
+2 StringPopup
+3 CandidateList
+4 Delete
+5 Dictation
+6 Dismiss
+7 Drag
+8 Handwriting
+9 International
+10 KeyplaneSwitch
+11 More
+12 Redo
+13 Return
+14 Shift
+15 Space
+16 StringFlick
+17 Undo
+18 EmojiInputView
+19 EmojiCategoryControl
+20 MultitapComplete
+21 MultitapReverse
+22 RecentInput
+23 Clear
+24 RevealHiddenCandidates
+25 SelectNextCandidate
+26 SelectPreviousCandidate
+27 AcceptAutocorrection
+28 Bold
+29 Italic
+30 Underline
+31 Cut
+32 Copy
+33 Paste
+34 LeftArrow
+35 RightArrow
+36 AssertLayoutTag
+37 Tab
+38 CapsLock
+39 DictationDisplay
+40 MessagesWriteboard
+
+Visual Style
+1 iPhoneStandard
+2 iPhoneDictation
+3 iPhoneAlert
+4 iPhoneEmoji
+5 iPhonePasscode
+
+101 Wildcat50On
+102 WildcatStandard
+103 WildcatDictation
+104 WildcatAlert
+105 WildcatPasscode
+106 WildcatSplit
+107 WildcatSplitFullWidth
+108 WildcatEmoji
+109 WildcatEmojiSplit
+201 MonolithStandard
+301 CarStandard
+
+Display Types
+0 String
+1 CandidateList
+2 Command
+3 Delete
+4 Dictation
+5 Dismiss
+6 Drag
+7 DualString
+8 DynamicString
+9 Emoji
+10 TenKeyKeyplaneSwitchOff
+11 TenKeyKeyplaneSwitchOn
+12 Handwriting
+13 International
+14 KeyplaneSwitch
+15 LeftDarkAndNoRightDivider
+16 LightBottom
+17 LightBottomAndRight
+18 More
+19 NoRightDivider
+20 NumberPad
+21 Return
+22 ReverseVerticalDark
+23 Shift
+24 SmallKana
+25 Space
+26 Tab
+27 TopLevelDomain
+28 TopLevelDomainVariant
+29 TwoVerticalDark
+30 TwoVerticalLight
+31 VoicedKey
+32 MultitapCompleteKey
+33 MultitapReverseKey
+34 WALongVowelSignKey
+35 TenKeyRomanKey
+36 EmojiInputView
+37 EmojiCategoryControl
+38 LetterLine
+39 Bold
+40 Italic
+41 Underline
+42 Cut
+43 Copy
+44 Paste
+45 LeftArrow
+46 RightArrow
+47 PredictionActive
+48 UCBSelectionBackground
+49 BIU
+50 Divider
+51 CapsLock
+52 DictationDisplay
+53 MessagesWriteboard
+
+Variants Types
+1 Accents
+3 Currency
+4 Email
+5 ImmediateAccents
+6 InputModes
+7 URL
+8 KeyplaneAccents
+9 BIU
+10 SkinToneEmoji
+11 PrepopulatedSkinToneEmoji
+12 ExtendedSkinToneEmoji
+13 PrepopulatedExtendedSkinToneEmoji
+
+Attribute Value
+1 10Key
+2 Center
+3 Dark
+4 Disabled
+5 Enabled
+6 ExtendedSymbols
+7 Flick
+8 Glyph
+9 Handwriting
+10 Highlighted
+11 Japanese50on
+12 KeyboardTypeASCIICapable
+13 KeyboardTypeDecimalPad
+14 KeyboardTypeDefault
+15 KeyboardTypeEmailAddress
+16 KeyboardTypeNamePhonePad
+17 KeyboardTypeNumberPad
+18 KeyboardTypeNumbersAndPunctuation
+19 KeyboardTypePhonePad
+20 KeyboardTypeURL
+21 Left
+22 Letters
+23 Light
+24 Name
+25 No
+26 Numbers
+27 PhonePad
+28 Pressed
+29 Right
+30 Straight
+31 Symbols
+32 Yes
+33 Chinese10Key
+34 Korean10Key
+35 JapaneseAIU
+36 StrictlyLeft
+37 StrictlyRight
+38 Emoji
+39 Dictation
+40 PopupMenu
+41 High
+42 Linear
+43 FixedLeft
+44 FixedRight
+45 Cased
+46 Literal
+47 None
