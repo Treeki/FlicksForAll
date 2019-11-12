@@ -1,10 +1,10 @@
-#include "UIKBTree.h"
-#include "UIKeyboardCache.h"
-#include "UIKBTouchState.h"
-#include "UIKeyboardTaskExecutionContext.h"
-#include "UIKeyboardTouchInfo.h"
-#include "UIKeyboardLayout.h"
-#include "UIKeyboardLayoutStar.h"
+#include "h/UIKBTree.h"
+#include "h/UIKeyboardCache.h"
+#include "h/UIKBTouchState.h"
+#include "h/UIKeyboardTaskExecutionContext.h"
+#include "h/UIKeyboardTouchInfo.h"
+#include "h/UIKeyboardLayout.h"
+#include "h/UIKeyboardLayoutStar.h"
 
 static UIKBTree *findLettersKeylayout(UIKBTree *keyplane) {
 	for (UIKBTree *keylayout in keyplane.subtrees) {
