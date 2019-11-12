@@ -1,5 +1,10 @@
 #include "UIKBTree.h"
 #include "UIKeyboardCache.h"
+#include "UIKBTouchState.h"
+#include "UIKeyboardTaskExecutionContext.h"
+#include "UIKeyboardTouchInfo.h"
+#include "UIKeyboardLayout.h"
+#include "UIKeyboardLayoutStar.h"
 
 static UIKBTree *findLettersKeylayout(UIKBTree *keyplane) {
 	for (UIKBTree *keylayout in keyplane.subtrees) {
@@ -9,7 +14,57 @@ static UIKBTree *findLettersKeylayout(UIKBTree *keyplane) {
 	return nil;
 }
 
+static bool lieAboutGestureKeys = false;
+
+// looks like we need this silliness
+// else the compiler complains that it doesn't know about fpAllow
+@interface UIKeyboardTouchInfo (FlickPlus)
+@property (nonatomic, assign) bool fpAllow;
+@end
+
+%hook UIKeyboardTouchInfo
+%property (nonatomic, assign) bool fpAllow;
+- (id)init {
+	self.fpAllow = false;
+	return %orig;
+}
+%end
+
+%hook UIKeyboardLayoutStar
+- (void)touchDragged:(UIKBTouchState *)state executionContext:(UIKeyboardTaskExecutionContext *)ctx {
+	UIKeyboardTouchInfo *touchInfo = [self infoForTouch:state]; // UIKeyboardTouchInfo *
+
+	// are we gonna let this one become a continuous path?
+	CGPoint initial = touchInfo.initialPoint;
+	CGPoint now = touchInfo.initialDragPoint; // TODO check if this is correct
+	double deltaX = now.x - initial.x;
+	double deltaY = now.y - initial.y;
+	double distanceSq = (deltaX * deltaX) + (deltaY * deltaY);
+
+	NSLog(@"delta:%f,%f distanceSq:%f", deltaX, deltaY, distanceSq);
+	if (deltaX < -30 || deltaX > 30 || distanceSq > (85*85))
+		touchInfo.fpAllow = true;
+
+	if (touchInfo.fpAllow) {
+		// this lets a continuous path happen
+		lieAboutGestureKeys = true;
+		%orig;
+		lieAboutGestureKeys = false;
+	} else {
+		%orig;
+	}
+}
+%end
+
 %hook UIKBTree
+- (int)displayTypeHint {
+	int type = %orig;
+	if (lieAboutGestureKeys && type == 10)
+		return 0;
+	else
+		return type;
+}
+
 - (void)updateFlickKeycapOnKeys {
 	%orig;
 
@@ -59,6 +114,7 @@ static UIKBTree *findLettersKeylayout(UIKBTree *keyplane) {
 
 	// iOS doesn't seem to care *what* key is assigned to gestureKey
 	// ... so we just fake it
+	// (nil also seems to work, in preliminary testing)
 	UIKBTree *surrogateKey = subBottomRow.subtrees.firstObject;
 
 	int mapCount = MIN(origBottomRow.subtrees.count, displayStrings.count);
@@ -68,7 +124,7 @@ static UIKBTree *findLettersKeylayout(UIKBTree *keyplane) {
 
 		origKey.secondaryDisplayStrings = @[[displayStrings objectAtIndex:i]];
 		origKey.secondaryRepresentedStrings = @[[representedStrings objectAtIndex:i]];
-		origKey.displayTypeHint = 10; // ??
+		origKey.displayTypeHint = 10; // this enables the gesture behaviour!
 		origKey.gestureKey = surrogateKey;
 	}
 	NSLog(@"all done");
@@ -127,9 +183,9 @@ static UIKBTree *findLettersKeylayout(UIKBTree *keyplane) {
 	dlopen("/System/Library/PrivateFrameworks/TextInputUI.framework/TextInputUI", RTLD_LAZY);
 
 	NSString *bundleID = [[NSBundle mainBundle] bundleIdentifier];
-    if ([bundleID isEqualToString:@"com.apple.springboard"]) {
-        %init(SpringBoard);
-    }
+	if ([bundleID isEqualToString:@"com.apple.springboard"]) {
+		%init(SpringBoard);
+	}
 
 	%init;
 }
