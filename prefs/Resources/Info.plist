@@ -1,0 +1,11 @@
+{
+    CFBundleDevelopmentRegion = English;
+    CFBundleExecutable = FlickPlusPrefs;
+    CFBundleIdentifier = "org.wuffs.flickplus";
+    CFBundleInfoDictionaryVersion = "6.0";
+    CFBundlePackageType = BNDL;
+    CFBundleShortVersionString = "1.0.0";
+    CFBundleSignature = "????";
+    CFBundleVersion = "1.0";
+    NSPrincipalClass = NFPRootListController;
+}

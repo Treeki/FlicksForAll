@@ -1,0 +1,10 @@
+{
+    entry =     {
+        bundle = FlickPlusPrefs;
+        cell = PSLinkCell;
+        detail = NFPRootListController;
+        icon = "icon.png";
+        isController = 1;
+        label = FlicksForAll;
+    };
+}

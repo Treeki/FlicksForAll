@@ -1,3 +1,17 @@
+UIKBRenderer _drawSingleSymbol draws all "Valid chars for fast drawing"
+and returns YES if succeeded, NO if not
+
+main keyplane: all letters (plus secondary except for those listed below)
+numbers and punctuation: all but £, ", , and '
+alternate symbols: none
+
+symbols in the paddle are not drawn using _drawSingleSymbol
+
+
+_drawKeyString handles all of them, including paddles
+... but is still hit by the textOpacity bug???
+
+
 	// https://iphonedevwiki.net/index.php/UIKBTree
 
 %hook UIKeyboardLayoutStar

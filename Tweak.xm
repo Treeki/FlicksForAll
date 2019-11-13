@@ -5,6 +5,15 @@
 #include "h/UIKeyboardTouchInfo.h"
 #include "h/UIKeyboardLayout.h"
 #include "h/UIKeyboardLayoutStar.h"
+#include "h/UIKBTextStyle.h"
+#include "h/UIKBRenderTraits.h"
+#include "h/UIKBRenderConfig.h"
+#include "h/UIKBRenderFactory.h"
+#include "h/UIKBRenderFactoryiPhone.h"
+#include <Cephei/HBPreferences.h>
+
+static HBPreferences *preferences;
+static NSString *lightSymbolsColour, *darkSymbolsColour;
 
 static UIKBTree *findLettersKeylayout(UIKBTree *keyplane) {
 	for (UIKBTree *keylayout in keyplane.subtrees) {
@@ -41,7 +50,7 @@ static bool lieAboutGestureKeys = false;
 	double deltaY = now.y - initial.y;
 	double distanceSq = (deltaX * deltaX) + (deltaY * deltaY);
 
-	NSLog(@"delta:%f,%f distanceSq:%f", deltaX, deltaY, distanceSq);
+	// NSLog(@"delta:%f,%f distanceSq:%f", deltaX, deltaY, distanceSq);
 	if (deltaX < -30 || deltaX > 30 || distanceSq > (85*85))
 		touchInfo.fpAllow = true;
 
@@ -175,8 +184,57 @@ static bool lieAboutGestureKeys = false;
 %end
 %end
 
+
+// recolour the symbols
+
+%hook UIKBRenderFactoryiPhone
+- (UIKBRenderTraits *)_traitsForKey:(UIKBTree *)key onKeyplane:(UIKBTree *)plane {
+	UIKBRenderTraits *traits = %orig;
+
+	NSArray *styles = traits.secondarySymbolStyles;
+	if (styles != nil) {
+		NSString *which = self.renderConfig.lightKeyboard ? lightSymbolsColour : darkSymbolsColour;
+
+		for (UIKBTextStyle *style in styles) {
+			style.textColor = which;
+			style.textOpacity = 1.0;
+		}
+	}
+
+	return traits;
+}
+%end
+
+
+static NSString *resolveColour(NSString *name) {
+	if ([name isEqualToString:@"white"]) {
+		return @"UIKBColorWhite";
+	} else if ([name isEqualToString:@"lgrey"]) {
+		return @"UIKBColorGray_Percent68";
+	} else if ([name isEqualToString:@"dgrey"]) {
+		return @"UIKBColorGray_Percent31_37";
+	} else if ([name isEqualToString:@"black"]) {
+		return @"UIKBColorBlack";
+	} else {
+		return @"UIKBColorRed";
+	}
+}
+
+
 %ctor {
-	NSLog(@"Doing it!!");
+	preferences = [[HBPreferences alloc] initWithIdentifier:@"org.wuffs.flickplus"];
+	[preferences registerDefaults:@{
+		@"lightSymbols": @"lgrey",
+		@"darkSymbols": @"lgrey"
+	}];
+	[preferences registerPreferenceChangeBlock:^{
+		NSLog(@"I'm %@ and I've seen a change!", [[NSBundle mainBundle] bundleIdentifier]);
+		lightSymbolsColour = resolveColour([preferences objectForKey:@"lightSymbols"]);
+		darkSymbolsColour = resolveColour([preferences objectForKey:@"darkSymbols"]);
+		NSLog(@"Now using %@ and %@", lightSymbolsColour, darkSymbolsColour);
+		[[%c(UIKeyboardCache) sharedInstance] purge];
+		// maybe also [UIKBRenderer clearInternalCaches] ??
+	}];
 
 	// trick thanks to poomsmart
 	// https://github.com/PoomSmart/EmojiPort-Legacy/blob/8573de11226ac2e1c4108c044078109dbfb07a02/KBResizeLegacy.xm

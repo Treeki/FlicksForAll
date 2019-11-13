@@ -1,0 +1,103 @@
+{
+    items = (
+        {
+            cell = PSGroupCell;
+            headerCellClass = HBPackageNameHeaderCell;
+            packageIdentifier = "org.wuffs.flickplus";
+			packageRepository = "https://cydia.wuffs.org";
+        },
+        {
+            cell = PSGroupCell;
+            label = "Arbitrary Text Field";
+            footerText = "Tap above to open a keyboard, which you can conveniently use to preview your settings.";
+        },
+        {
+            cell = PSEditTextCell;
+        },
+        {
+            cell = PSGroupCell;
+            label = "Symbol Colours";
+            footerText = "Sets the colour of the symbols that appear on the top of the keys.";
+        },
+        {
+            cell = PSLinkListCell;
+            label = "Light Keyboard";
+            default = "lgrey";
+            defaults = "org.wuffs.flickplus";
+            key = lightSymbols;
+            validValues = ("lgrey", "dgrey", "black");
+            validTitles = ("Light Grey (iOS Default)", "Dark Grey", "Black");
+            shortTitles = ("Light Grey", "Dark Grey", "Black");
+            detail = PSListItemsController;
+            PostNotification = "org.wuffs.flickplus/ReloadPrefs";
+        },
+        {
+            cell = PSLinkListCell;
+            label = "Dark Keyboard";
+            default = "lgrey";
+            defaults = "org.wuffs.flickplus";
+            key = darkSymbols;
+            validValues = ("white", "lgrey", "dgrey", "black");
+            validTitles = ("White", "Light Grey (iOS Default)", "Dark Grey", "Black");
+            shortTitles = ("White", "Light Grey", "Dark Grey", "Black");
+            detail = PSListItemsController;
+            PostNotification = "org.wuffs.flickplus/ReloadPrefs";
+        },
+
+        {
+            cell = PSGroupCell;
+            label = "Respring";
+            footerText = "Apps may need to be restarted for setting changes to take effect. This button gives you a handy shortcut that restarts everything.";
+        },
+        {
+            cell = PSButtonCell;
+            label = "Restart SpringBoard";
+            action = "hb_respring:";
+        },
+
+        {
+            cell = PSGroupCell;
+            label = "Donate";
+            footerText = "This tweak is free and open-source. If you like it, feel free to throw some money at me (no pressure though!)";
+        },
+        {
+            cellClass = HBLinkTableCell;
+            label = "PayPal.me";
+            url = "https://paypal.me/trashcurl";
+        },
+        {
+            cellClass = HBLinkTableCell;
+            label = "Ko-fi";
+            url = "https://ko-fi.com/ninji_";
+        },
+        {
+            cellClass = HBLinkTableCell;
+            label = "Monzo (UK only)";
+            url = "https://monzo.me/ninji";
+        },
+
+
+        {
+            cell = PSGroupCell;
+            label = "Twitter";
+            footerText = "You'll probably regret following me, but it's there if you really want to.";
+        },
+        {
+            cellClass = HBTwitterCell;
+            user = "_Ninji";
+            label = "Ninji";
+        },
+
+
+        {
+            cell = PSGroupCell;
+            label = "Source Code";
+        },
+        {
+            cellClass = HBLinkTableCell;
+            label = "GitHub: Treeki/FlicksForAll";
+            url = "https://github.com/Treeki/FlicksForAll";
+        }
+    );
+    title = FlicksForAll;
+}
