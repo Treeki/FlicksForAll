@@ -2,12 +2,6 @@
     items = (
         {
             cell = PSGroupCell;
-            headerCellClass = HBPackageNameHeaderCell;
-            packageIdentifier = "org.wuffs.flickplus";
-			packageRepository = "https://cydia.wuffs.org";
-        },
-        {
-            cell = PSGroupCell;
             label = "Arbitrary Text Field";
             footerText = "Tap above to open a keyboard, which you can conveniently use to preview your settings.";
         },
@@ -52,7 +46,7 @@
         {
             cell = PSButtonCell;
             label = "Restart SpringBoard";
-            action = "hb_respring:";
+            action = "hb_respringAndReturn:";
         },
 
         {
