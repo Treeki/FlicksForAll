@@ -17,7 +17,7 @@ static NSString *lightSymbolsColour, *darkSymbolsColour;
 
 static UIKBTree *findLettersKeylayout(UIKBTree *keyplane) {
 	for (UIKBTree *keylayout in keyplane.subtrees) {
-		if ([keylayout.name hasSuffix:@"Letters-Keylayout"])
+		if ([keylayout.name hasSuffix:@"Letters-Keylayout"] || [keylayout.name hasSuffix:@"Full-3Row-Keylayout"] || [keylayout.name hasSuffix:@"Letters-Full-Keylayout"])
 			return keylayout;
 	}
 	return nil;
@@ -78,7 +78,7 @@ static bool lieAboutGestureKeys = false;
 	%orig;
 
 	// we only want to patch certain planes
-	bool ok = [self.name hasSuffix:@"-Letters"] || [self.name hasSuffix:@"-Letters-Small-Display"];
+	bool ok = [self.name hasSuffix:@"-Letters"] || [self.name hasSuffix:@"-Letters-Small-Display"] || [self.name hasSuffix:@"_Letters"];
 	if (!ok)
 		return;
 
@@ -148,7 +148,7 @@ static bool lieAboutGestureKeys = false;
 	UIKBTree *tree = %orig;
 
 	for (UIKBTree *keyplane in tree.subtrees) {
-		if ([keyplane.name hasSuffix:@"-Letters"] || [keyplane.name hasSuffix:@"-Letters-Small-Display"]) {
+		if ([keyplane.name hasSuffix:@"-Letters"] || [keyplane.name hasSuffix:@"-Letters-Small-Display"] || [keyplane.name hasSuffix:@"_Letters"]) {
 			NSString *other = [keyplane alternateKeyplaneName];
 			[keyplane setObject:other forProperty:@"gesture-keyplane"];
 		}
