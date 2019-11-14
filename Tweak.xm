@@ -25,12 +25,6 @@ static UIKBTree *findLettersKeylayout(UIKBTree *keyplane) {
 
 static bool lieAboutGestureKeys = false;
 
-// looks like we need this silliness
-// else the compiler complains that it doesn't know about fpAllow
-@interface UIKeyboardTouchInfo (FlickPlus)
-@property (nonatomic, assign) bool fpAllow;
-@end
-
 %hook UIKeyboardTouchInfo
 %property (nonatomic, assign) bool fpAllow;
 - (id)init {
