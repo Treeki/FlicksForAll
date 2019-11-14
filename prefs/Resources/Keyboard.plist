@@ -1,0 +1,9 @@
+{
+    items = (
+        {
+            cell = PSGroupCell;
+            label = "Preview";
+        }
+    );
+    title = "Keyboard Settings";
+}

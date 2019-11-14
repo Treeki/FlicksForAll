@@ -92,8 +92,8 @@ static bool lieAboutGestureKeys = false;
 	UIKBTree *origKeyset = mainKeylayout.keySet;
 	UIKBTree *subKeyset = subKeylayout.keySet;
 
-	// for now, we'll trust the OS to do the right thing on rows 1/2 (mostly)
-	// and redo row 3 with our own mapping
+	// int rowCount = MIN(origKeyset.subtrees.count, subKeyset.subtrees.count);
+	// NSMutableArray *overspill = [NSMutableArray array];
 	NSMutableArray *displayStrings = [NSMutableArray array];
 	NSMutableArray *representedStrings = [NSMutableArray array];
 

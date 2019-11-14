@@ -10,6 +10,10 @@
         },
         {
             cell = PSGroupCell;
+            label = "Enabled Keyboards";
+        },
+        {
+            cell = PSGroupCell;
             label = "Symbol Colours";
             footerText = "Sets the colour of the symbols that appear on the top of the keys.";
         },
