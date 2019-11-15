@@ -18,6 +18,7 @@
 
 static HBPreferences *preferences;
 static NSString *lightSymbolsColour, *darkSymbolsColour;
+static double symbolFontScale = 1.0;
 
 static UIKBTree *findLettersKeylayout(UIKBTree *keyplane) {
 	for (UIKBTree *keylayout in keyplane.subtrees) {
@@ -195,6 +196,7 @@ static bool lieAboutGestureKeys = false;
 		for (UIKBTextStyle *style in styles) {
 			style.textColor = which;
 			style.textOpacity = 1.0;
+			style.fontSize *= symbolFontScale;
 		}
 
 		// force the blurred background to be applied to light KB
@@ -317,13 +319,13 @@ static NSString *resolveColour(NSString *name) {
 	preferences = [[HBPreferences alloc] initWithIdentifier:@"org.wuffs.flickplus"];
 	[preferences registerDefaults:@{
 		@"lightSymbols": @"lgrey",
-		@"darkSymbols": @"lgrey"
+		@"darkSymbols": @"lgrey",
+		@"smallSymbols": @NO
 	}];
 	[preferences registerPreferenceChangeBlock:^{
-		// NSLog(@"I'm %@ and I've seen a change!", [[NSBundle mainBundle] bundleIdentifier]);
 		lightSymbolsColour = resolveColour([preferences objectForKey:@"lightSymbols"]);
 		darkSymbolsColour = resolveColour([preferences objectForKey:@"darkSymbols"]);
-		// NSLog(@"Now using %@ and %@", lightSymbolsColour, darkSymbolsColour);
+		symbolFontScale = [preferences boolForKey:@"smallSymbols"] ? 0.7 : 1.0;
 		[[%c(UIKeyboardCache) sharedInstance] purge];
 		// maybe also [UIKBRenderer clearInternalCaches] ??
 	}];

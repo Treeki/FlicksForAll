@@ -37,6 +37,18 @@
             detail = PSListItemsController;
             PostNotification = "org.wuffs.flickplus/ReloadPrefs";
         },
+        {
+            cell = PSGroupCell;
+            label = "Sizing";
+        },
+        {
+            cell = PSSwitchCell;
+            label = "Smaller Symbols";
+            default = no;
+            defaults = "org.wuffs.flickplus";
+            key = smallSymbols;
+            PostNotification = "org.wuffs.flickplus/ReloadPrefs";
+        },
 
         {
             cell = PSGroupCell;
