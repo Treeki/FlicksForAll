@@ -12,30 +12,30 @@ _drawKeyString handles all of them, including paddles
 ... but is still hit by the textOpacity bug???
 
 
-	// https://iphonedevwiki.net/index.php/UIKBTree
+    // https://iphonedevwiki.net/index.php/UIKBTree
 
 %hook UIKeyboardLayoutStar
 - (void)setLayoutTag:(NSString *)tag {
-	NSLog(@"UIKeyboardLayoutStar setLayout:%@", tag);
-	%orig;
+    NSLog(@"UIKeyboardLayoutStar setLayout:%@", tag);
+    %orig;
 }
 %end
 
 %hook UIKBTree
 -(void)setLayoutTag:(NSString *)tag passingKeyTest:(id)test {
-	NSLog(@"UIKBTree %@ sets tag %@", [self description], tag);
-	%orig;
+    NSLog(@"UIKBTree %@ sets tag %@", [self description], tag);
+    %orig;
 }
 - (void)setGestureKey:(UIKBTree *)key {
-	NSLog(@"UIKBTree %@ sets gestureKey %@", [self description], [key description]);
-	%orig;
+    NSLog(@"UIKBTree %@ sets gestureKey %@", [self description], [key description]);
+    %orig;
 }
 %end
 
-	// dual mode for iPad bottom right keys:
-	// displayType = 7 (dual string)
-	// interactionType = 2 (popup?)
-	// secondaryDisplayStrings, secondaryRepresentedStrings
+    // dual mode for iPad bottom right keys:
+    // displayType = 7 (dual string)
+    // interactionType = 2 (popup?)
+    // secondaryDisplayStrings, secondaryRepresentedStrings
 
 supports-continuous-path is a keyplane property
 
@@ -44,17 +44,17 @@ boolForProperty: 32 = true, other = false??
 updateFlickKeycapOnKeys is where the gestures are combined
 
 keyboard {
-	keyplane* {
-		keylayout* {
-			keyset {
-				list* {
-					key*
-				}
-			}
-			geometryset
-			attributeset
-		}
-	}
+    keyplane* {
+        keylayout* {
+            keyset {
+                list* {
+                    key*
+                }
+            }
+            geometryset
+            attributeset
+        }
+    }
 }
 
 Tree Types:
@@ -253,3 +253,188 @@ Attribute Value
 45 Cased
 46 Literal
 47 None
+
+
+Image flags:
+1: key backgrounds
+2: key dropshadows
+3: popup background, but different, somehow (update: this is prob. the mask)
+4: key labels, all kinds
+16: secondary label *in popup*
+32: 2nd secondary label (for developer gesture mode)
+
+%hook UIKeyboardCache
+- (NSDictionary *)displayImagesForView:(UIView *)view fromLayout:(UIKeyboardLayout *)layout imageFlags:(NSArray *)imageFlags {
+    NSDictionary *dict = %orig;
+    NSLog(@"displayImagesForView:");
+    [dict enumerateKeysAndObjectsUsingBlock:^(NSObject *key, UIImage *value, BOOL *stop) {
+        // NSLog(@"IMG: %@ -> %@", key, value);
+        NSData *png = UIImagePNGRepresentation(value);
+        NSString *path = [NSString stringWithFormat:@"/private/var/mobile/Containers/Data/Application/7FCDEF14-1CFE-4AD0-A108-B7F49D3616C1/tmp/kb2/%@_%d_%d.png", key, (int)value.size.width, (int)value.size.height];
+        NSLog(@"Writing to %@", path);
+        if ([png writeToFile:path atomically:NO])
+            NSLog(@"ok");
+        else
+            NSLog(@"failed");
+    }];
+    return dict;
+}
+%end
+
+
+Key States:
+1 = Disabled
+2 = Normal
+4 = Pressed
+8 = ~it is a mystery~
+16 = Menu active (accent variants OR international menu OR stringflick)
+32 = Shift Lock
+36 = Shift Locked + Touched
+
+
+'flick' appears to be 10key boards with l/r/u/d buttons like Japanese
+uses interaction=16 StringFlick
+KBflickDirection represents which subkey user is touching
+
+fixing key popups is gonna involve UIKBKeyViewAnimator
+
+UIKeyboardLayoutStar.updatePanAlternativesForTouchInfo is where the
+preview animation for the secondary strings is manipulated
+so, keyViewAnimator is probably what I need to fix
+sets UIKBTree.selectedVariantIndex to -1, 0 or 1
+
+calling UIKBKeyplaneView.purgeActiveKeyViews gets rid of cached key popups
+calling UIKeyboardLayoutStar.reloadCurrentKeyplane does a full
+
+UIKBKeyplaneView.viewForKey gets the popup view for a key, if that key is pressed
+
+UIKeyboardLayoutStar contains UIKBKeyplaneView
+UIKBKeyplaneView contain three UIKBSplitImageView instances for main keys, and
+one UIKBKeyView each for the control keys
+
+a UIKBKeyView is added to UIInputSetContainerView for the popups
+
+changing key name may be a cheap way to invalidate caches
+
+
+---
+
+
+fixing the positions on keycaps requires playing with UIKBKeyViewAnimator
+we need two separate versions: one for paddles and one for non-paddles
+
+initial positions upon tap are applied by:
+  transitionKeyView:fromState:toState:completion:
+    handles toState=4 (becoming pressed)
+    text layer gets keycapPrimaryTransform
+    for 1-symbol keys:
+      symbol layer gets keycapAlternateTransform
+    for 2-symbol keys:
+      left symbol layer gets keycapLeftTransform
+      right symbol layer gets keycapRightTransform
+    symbol layer gets opacity 0.25 for light kb, 0.3 for dark kb
+
+keycapPrimaryTransform:
+  from x=0.115 y=0.28 w=0.77 h=0.44 to x=0.115 y=0.45 w=0.77 h=0.44
+  (moves label down)
+
+keycapAlternateTransform:
+  from x=0.115 y=0.28 w=0.77 h=0.44 to x=0.25 y=0.13 w=0.5 h=0.286
+  or, h=0.2574 if the symbol is a digit
+  (moves label up and makes it smaller)
+
+keycapLeftTransform:
+  from x=0.115 y=0.28 w=0.77 h=0.44 to x=-0.065 y=0.13 w=0.65 h=0.286
+  (moves label up and left and makes it smaller)
+  ...hey, wait, isn't this fucking up the aspect ratio?
+  (yes, it's noticeable on iPad, amazing)
+
+keycapRightTransform:
+  from x=0.115 y=0.28 w=0.77 h=0.44 to x=0.415 y=0.13 w=0.65 h=0.286
+  (same as above really)
+
+keycapPrimaryExitTransform:
+  from x=0.115 y=0.28 w=0.77 h=0.44 to x=0.5 y=0.89 w=0 h=0
+  (moves label to bottom, out of the way)
+
+keycapNullTransform:
+  from x=0.115 y=0.28 w=0.77 h=0.44 to x=0.115 y=0.28 w=0.77 h=0.44
+  (doesn't move anything)
+  only way to get good rendering on the paddles, by default
+
+then, animations:
+  transitionStartedForKeyView:alternateCount:toLeft:
+    creates missing animations...
+    for alternateCount=1 (1-symbol keys):
+      creates "pan transform" animation on text layer:
+        meshTransform from keycapPrimaryTransform to keycapPrimaryExitTransform
+      creates "pan opacity" animation on text layer:
+        opacity animation from 1.0 to 0
+      creates "pan transform" animation on symbol layer:
+        meshTransform from keycapAlternateTransform to keycapNullTransform
+      creates "pan opacity" animation on symbol layer:
+        opacity animation from 0.25/0.3 to 1.0
+    for alternateCount=2 (2-symbol keys):
+      if toLeft:
+        creates "pan transform left" animation on text layer:
+          meshTransform from keycapPrimaryTransform to keycapLeftSelectPrimaryTransform
+        creates "pan transform" animation on symbol layer 1:
+          meshTransform from keycapLeftTransform to keycapLeftSelectLeftTransform
+        creates "pan transform" animation on symbol layer 2:
+          meshTransform from keycapRightTransform to keycapLeftSelectRightTransform
+        creates "pan opacity" animation on symbol layer 1:
+          opacity animation from 0.25/0.3 to 1.0
+        creates "pan opacity" animation on symbol layer 2:
+          opacity animation from 0.25/0.3 to 0
+      if not toLeft:
+        creates "pan transform right" animation on text layer:
+          meshTransform from keycapPrimaryTransform to keycapRightSelectPrimaryTransform
+        creates "pan transform" animation on symbol layer 1:
+          meshTransform from keycapLeftTransform to keycapRightSelectLeftTransform
+        creates "pan transform" animation on symbol layer 2:
+          meshTransform from keycapRightTransform to keycapRightSelectRightTransform
+        creates "pan opacity" animation on symbol layer 1:
+          opacity animation from 0.25/0.3 to 0
+        creates "pan opacity" animation on symbol layer 2:
+          opacity animation from 0.25/0.3 to 1.0
+      creates "pan opacity" animation on text layer:
+        opacity animation from 1.0 to 0
+
+  transitionEndedForKeyView:alternateCount:
+    ...honestly can't be fucked with figuring this one out, it's 3am, it's more of the same
+    it generates animations, so ofc we need to fuck with it too
+
+  updateTransitionForKeyView:normalizedDragSize:
+    calls transitionStartedForKeyView:... and setTimeOffset on the layers as appropriate
+
+  endTransitionForKeyView:
+    calls transitionEndedForKeyView... etc
+
+ok, now what
+paddle is provisionally 108*114 portrait, 123*114 landscape (on i8 simulator)
+...but of course, the position of the text changes *inside* it at the edges
+making it work nicely will require some Trickery
+
+non-paddle is provisionally 35.5*46 portrait, 51*36 landscape (on i8 simulator)
+
+iPad keys are pretty much square, no paddles, so it's much easier there
+
+
+
+
+---
+
+Default renderconfig:
+Light: true
+Blur: 30, 0.9
+Keycap opacity: 0.96
+Light keycap opacity: 1.0
+
+Dark:
+Light: false
+Blur: 20, 0.5
+Keycap opacity: 1.0
+Light keycap opacity: 1.0
+
+Low Quality Dark:
+Same, but forceQuality is 10

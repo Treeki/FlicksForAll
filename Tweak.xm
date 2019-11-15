@@ -10,6 +10,10 @@
 #include "h/UIKBRenderConfig.h"
 #include "h/UIKBRenderFactory.h"
 #include "h/UIKBRenderFactoryiPhone.h"
+#include "h/UIKBKeyView.h"
+#include "h/UIKBKeyViewAnimator.h"
+#include <dlfcn.h>
+
 #include <Cephei/HBPreferences.h>
 
 static HBPreferences *preferences;
@@ -180,7 +184,6 @@ static bool lieAboutGestureKeys = false;
 
 
 // recolour the symbols
-
 %hook UIKBRenderFactoryiPhone
 - (UIKBRenderTraits *)_traitsForKey:(UIKBTree *)key onKeyplane:(UIKBTree *)plane {
 	UIKBRenderTraits *traits = %orig;
@@ -193,11 +196,106 @@ static bool lieAboutGestureKeys = false;
 			style.textColor = which;
 			style.textOpacity = 1.0;
 		}
+
+		// force the blurred background to be applied to light KB
+		// stops the label from showing through and making things weird
+		if (!self.allowsPaddles)
+			traits.blurBlending = YES;
 	}
 
 	return traits;
 }
 %end
+
+// make animations less of a disaster
+enum AnimHackMode { AHMNone, AHMPaddles, AHMNoPaddles };
+static AnimHackMode animHackMode = AHMNone;
+
+static void enterAnimHackMode(UIKBKeyView *keyView) {
+	// TODO: might want to check the keyboard's interface idiom
+	// in case people decide to run this on an iPad
+	animHackMode = keyView.factory.allowsPaddles ? AHMPaddles : AHMNoPaddles;
+}
+
+static void endAnimHackMode(UIKBKeyView *keyView) {
+	animHackMode = AHMNone;
+}
+
+%hook UIKBKeyViewAnimator
+- (void)transitionKeyView:(UIKBKeyView *)keyView fromState:(int)from toState:(int)to completion:(void *)c {
+	enterAnimHackMode(keyView);
+	%orig;
+	if (animHackMode != AHMNone) {
+		// force the symbol opacity to zero
+		// we can't change a double constant with a simple hook, alas
+		UIKBTree *key = keyView.key;
+		if (to == 4 && key.displayType != 7 && key.displayTypeHint == 10) {
+			CALayer *symbolLayer = [keyView layerForRenderFlags:16];
+			if (symbolLayer)
+				symbolLayer.opacity = 0;
+		}
+	}
+	endAnimHackMode(keyView);
+}
+- (void)updateTransitionForKeyView:(UIKBKeyView *)keyView normalizedDragSize:(CGSize)size {
+	enterAnimHackMode(keyView);
+	%orig;
+	endAnimHackMode(keyView);
+}
+- (void)endTransitionForKeyView:(UIKBKeyView *)keyView {
+	enterAnimHackMode(keyView);
+	%orig;
+	endAnimHackMode(keyView);
+}
++ (id)normalizedAnimationWithKeyPath:(NSString *)path fromValue:(id)from toValue:(id)to {
+	// we want to force symbol opacity to 0...
+	if (animHackMode != AHMNone && [path isEqualToString:@"opacity"]) {
+		// awful kludge alert!!
+		double v = [from doubleValue];
+		if (v >= 0.2 && v <= 0.35) {
+			return %orig(path, @0, to);
+		}
+	}
+	return %orig;
+}
++ (id)normalizedUnwindOpacityAnimationWithKeyPath:(NSString *)path originallyFromValue:(id)from toValue:(id)to offset:(double)offset {
+	// it's a great day in UIKit, and you are a horrible goose
+	if (animHackMode != AHMNone && [path isEqualToString:@"opacity"]) {
+		// awful kludge alert!! (part 2)
+		double v = [from doubleValue];
+		if (v >= 0.2 && v <= 0.35) {
+			return %orig(path, @0, to, offset);
+		}
+	}
+	return %orig;
+}
+
+- (id)keycapPrimaryTransform {
+	// don't relocate the primary keycap, at all
+	if (animHackMode == AHMNone)
+		return %orig;
+	else
+		return self.keycapNullTransform;
+}
+
+- (id)keycapAlternateTransform:(UIKBKeyView *)keyView {
+	// move the symbol out of view at the top
+	// not ideal, but it's less glitchy-looking than the default...
+	if (animHackMode == AHMNone)
+		return %orig;
+	else {
+		return [self keycapMeshTransformFromRect:CGRectMake(0.115, 0.28, 0.77, 0.44)
+		                                  toRect:CGRectMake(0.5, 0, 0, 0)];
+	}
+	// eventually, it would be good to render paddle-less mode to match
+	// the non-pressed keys, but that requires more work to determine the
+	// correct rects for all configurations
+}
+
+// TODO: do similar stopgap animations for the left/right bits
+%end
+
+
 
 
 static NSString *resolveColour(NSString *name) {
@@ -222,10 +320,10 @@ static NSString *resolveColour(NSString *name) {
 		@"darkSymbols": @"lgrey"
 	}];
 	[preferences registerPreferenceChangeBlock:^{
-		NSLog(@"I'm %@ and I've seen a change!", [[NSBundle mainBundle] bundleIdentifier]);
+		// NSLog(@"I'm %@ and I've seen a change!", [[NSBundle mainBundle] bundleIdentifier]);
 		lightSymbolsColour = resolveColour([preferences objectForKey:@"lightSymbols"]);
 		darkSymbolsColour = resolveColour([preferences objectForKey:@"darkSymbols"]);
-		NSLog(@"Now using %@ and %@", lightSymbolsColour, darkSymbolsColour);
+		// NSLog(@"Now using %@ and %@", lightSymbolsColour, darkSymbolsColour);
 		[[%c(UIKeyboardCache) sharedInstance] purge];
 		// maybe also [UIKBRenderer clearInternalCaches] ??
 	}];
