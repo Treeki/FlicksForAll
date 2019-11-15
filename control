@@ -1,7 +1,7 @@
 Package: org.wuffs.flickplus
 Name: FlicksForAll
 Depends: mobilesubstrate, ws.hbang.common (>= 1.13)
-Version: 0.0.4
+Version: 0.0.5
 Architecture: iphoneos-arm
 Description: iPad-like key flicks on iPhone (iOS 13)
 Maintainer: Ninji <ninji@wuffs.org>
