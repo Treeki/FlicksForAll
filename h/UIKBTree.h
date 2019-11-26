@@ -25,6 +25,7 @@
 - (id)alternateKeyplaneName;
 - (id)cachedGestureLayout;
 - (id)displayString;
+- (id)gestureKeyplaneName;
 - (id)keySet;
 - (id)representedString;
 - (int)displayType;
@@ -35,4 +36,6 @@
 - (void)setSecondaryDisplayStrings:(id)arg1;
 - (void)setSecondaryRepresentedStrings:(id)arg1;
 - (id)shiftAlternateKeyplaneName;
+- (id)stringForProperty:(id)arg1;
+- (id)subtreeWithName:(id)arg1;
 @end

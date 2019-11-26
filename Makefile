@@ -12,7 +12,7 @@ include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = flickplus
 
-flickplus_FILES = Tweak.xm
+flickplus_FILES = Tweak.xm Utils.m
 flickplus_CFLAGS = -fobjc-arc
 flickplus_EXTRA_FRAMEWORKS += Cephei
 

@@ -438,3 +438,55 @@ Light keycap opacity: 1.0
 
 Low Quality Dark:
 Same, but forceQuality is 10
+
+KBStarTypeString(a, b):
+  a == 2: <TV>
+	_: blank
+    4: NumberPad
+	5: PhonePad
+	6: blank
+	7: Email
+	8: DecimalPad
+	9: blank
+	10: AlphaWithURL
+    11: NumberPad
+	127: PasscodePad
+  a == 1: <iPad>
+    _: blank
+	3: URL
+	4: Pad
+	5: Pad
+	6: NamePhonePad
+	7: Email
+	8: Pad
+	9: Twitter
+	10: AlphaWithURL
+	11: Pad
+	127: PasscodePad
+  else: <iPhone or Car>
+    _: blank
+	3: URL
+	4: NumberPad
+	5: PhonePad
+	6: NamePhonePad
+	7: Email
+	8: DecimalPad
+	9: Twitter
+	10: AlphaWithURL
+	11: NumberPad
+	127: PasscodePad
+
+
+
+Enumerating enabled keyboards:
+  [UIKeyboardInputModeController sharedInputModeController] keeps track of them
+
+  activeInputModes returns NSArray of UIKeyboardInputMode and UIKeyboardExtensionInputMode
+  enabledInputModes returns NSArray of identifiers:
+    "en_GB@sw=QWERTY;hw=Automatic",
+    "es_ES@sw=QWERTY;hw=Automatic",
+    "emoji@sw=Emoji",
+    "tr_TR@sw=Turkish-Q;hw=Automatic",
+    "com.textstarter.PC-Keyboard.Extension"
+
+displayName and extendedDisplayName give the names to show

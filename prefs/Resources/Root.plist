@@ -10,6 +10,10 @@
         },
         {
             cell = PSGroupCell;
+            label = "Active Layouts";
+        },
+        {
+            cell = PSGroupCell;
             label = "Symbol Colours";
             footerText = "Sets the colour of the symbols that appear on the top of the keys.";
         },
@@ -52,13 +56,18 @@
 
         {
             cell = PSGroupCell;
-            label = "Respring";
-            footerText = "Apps may need to be restarted for setting changes to take effect. This button gives you a handy shortcut that restarts everything.";
+            label = "Tools";
+            footerText = "Use only in case of emergency.";
         },
         {
             cell = PSButtonCell;
-            label = "Restart SpringBoard";
-            action = "hb_respringAndReturn:";
+            label = "Reset Settings";
+            action = "resetSettingsTapped:";
+            confirmation = {
+                prompt = "All of your FlicksForAll settings will be cleared. Are you sure?";
+                title = "Yes, do it";
+                cancelTitle = "Cancel";
+            };
         },
 
         {
