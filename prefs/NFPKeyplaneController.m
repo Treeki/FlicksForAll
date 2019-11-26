@@ -33,6 +33,10 @@
 }
 @end
 
+@interface UIKBTree (FlickPlus)
+- (NSDictionary *)nfpGenerateKeylayoutConfigBasedOffKeylayout:(UIKBTree *)subLayout inKeyplane:(UIKBTree *)keyplane rewriteSmallToCapital:(BOOL)smallToCaps;
+@end
+
 enum {
 	scClearAll,
 	scCopyFromPlane
@@ -68,12 +72,25 @@ enum {
 
 		_hbPrefs = [[HBPreferences alloc] initWithIdentifier:@"org.wuffs.flickplus"];
 		_prefKey = [NSString stringWithFormat:@"kb-%@--%@--flicks", layoutName, slicedKeyplaneName];
-		_configData = [[_hbPrefs objectForKey:_prefKey] mutableCopy];
-		if (_configData == nil)
-			_configData = [NSMutableDictionary dictionary];
+		NSDictionary *storedConfig = [_hbPrefs objectForKey:_prefKey];
+		if (storedConfig == nil) {
+			UIKBTree *keylayout = _keyplane.subtrees[0];
+			UIKBTree *gestureKeyplane = [_keyboard subtreeWithName:_keyplane.gestureKeyplaneName];
+			if (gestureKeyplane) {
+				NSLog(@"NFPKeyplaneController creating new default config with gestureKeyplane=%@", gestureKeyplane.name);
+				UIKBTree *gestureKeylayout = gestureKeyplane.subtrees[0];
+				_configData = [[keylayout nfpGenerateKeylayoutConfigBasedOffKeylayout:gestureKeylayout inKeyplane:_keyplane rewriteSmallToCapital:NO] mutableCopy];
+			} else {
+				NSLog(@"NFPKeyplaneController creating new blank config");
+				_configData = [NSMutableDictionary dictionary];
+			}
+		} else {
+			NSLog(@"NFPKeyplaneController loading existing config");
+			_configData = [storedConfig mutableCopy];
+		}
 
-		// Spawn some shortcuts
-		[self addShortcutSpecTo:specs named:@"Clear All Shortcuts" withEnum:scClearAll andExtra:nil];
+		// Spawn some templates
+		[self addTemplateSpecTo:specs named:@"Clear All Shortcuts" withEnum:scClearAll andExtra:nil];
 
 		NSArray *alternativeKeyplanes = [self selectAlternativeKeyplanesFrom:_keyboard ignoringPlane:_keyplane];
 		if (alternativeKeyplanes.count > 0) {
@@ -83,7 +100,7 @@ enum {
 
 			for (UIKBTree *alternative in alternativeKeyplanes) {
 				NSString *name = [@"Keys from " stringByAppendingString:[[alternative.name sliceAfterLastUnderscore] hyphensToSpaces]];
-				[self addShortcutSpecTo:specs named:name withEnum:scCopyFromPlane andExtra:alternative.name];
+				[self addTemplateSpecTo:specs named:name withEnum:scCopyFromPlane andExtra:alternative.name];
 			}
 		}
 
@@ -144,7 +161,7 @@ enum {
 }
 
 
-- (void)addShortcutSpecTo:(NSMutableArray *)specs named:(NSString *)name withEnum:(int)shortcut andExtra:(NSString *)extra {
+- (void)addTemplateSpecTo:(NSMutableArray *)specs named:(NSString *)name withEnum:(int)shortcut andExtra:(NSString *)extra {
 	PSConfirmationSpecifier *spec = [PSConfirmationSpecifier
 		preferenceSpecifierNamed:name
 		target:self
@@ -153,7 +170,7 @@ enum {
 		detail:Nil
 		cell:PSButtonCell
 		edit:Nil];
-	spec.confirmationAction = @selector(processShortcut:);
+	spec.confirmationAction = @selector(processTemplate:);
 	if (shortcut == scClearAll)
 		spec.prompt = @"All the existing shortcuts on this page will be removed.";
 	else
@@ -167,9 +184,32 @@ enum {
 }
 
 
-- (void)processShortcut:(PSSpecifier *)specifier {
+- (void)processTemplate:(PSSpecifier *)specifier {
 	int shortcut = [[specifier propertyForKey:@"fp-shortcut"] integerValue];
-	NSLog(@"Clicked the boy... %d", shortcut);
+
+	if (shortcut == scClearAll) {
+		[_configData removeAllObjects];
+	} else if (shortcut == scCopyFromPlane) {
+		NSString *srcKeyplaneName = [specifier propertyForKey:@"fp-shortcut-extra"];
+		UIKBTree *srcKeyplane = [_keyboard subtreeWithName:srcKeyplaneName];
+		UIKBTree *srcKeylayout = srcKeyplane.subtrees[0];
+		UIKBTree *destKeylayout = _keyplane.subtrees[0];
+		_configData = [[destKeylayout nfpGenerateKeylayoutConfigBasedOffKeylayout:srcKeylayout inKeyplane:_keyplane rewriteSmallToCapital:NO] mutableCopy];
+	}
+
+	// give all key specifiers back the latest info
+	for (PSSpecifier *specifier in _specifiers) {
+		UIKBTree *key = [specifier propertyForKey:@"fp-key"];
+		if (key != nil) {
+			NSArray *keyData = _configData[key.name];
+			if (keyData == nil)
+				[specifier removePropertyForKey:@"fp-key-config"];
+			else
+				[specifier setProperty:keyData forKey:@"fp-key-config"];
+			[self reloadSpecifier:specifier];
+		}
+	}
+	[self writeSettings];
 }
 
 

@@ -68,6 +68,75 @@ static bool lieAboutGestureKeys = false;
 }
 %end
 
+@implementation UIKBTree (FlickPlus)
+- (NSDictionary *)nfpGenerateKeylayoutConfigBasedOffKeylayout:(UIKBTree *)subLayout inKeyplane:(UIKBTree *)keyplane rewriteSmallToCapital:(BOOL)smallToCaps {
+	// context: keylayout (NOT keyplane!)
+	if (subLayout == nil) {
+		NSLog(@"nfpGenerateKeylayoutConfigBasedOffKeylayout passed null sublayout!");
+		return [NSDictionary dictionary];
+	}
+
+	// mostly same as pre-0.0.6 versions of the tweak
+	NSMutableDictionary *result = [NSMutableDictionary dictionary];
+
+	UIKBTree *thisKeyset = self.keySet, *subKeyset = subLayout.keySet;
+
+	UIKBTree *thisTopRow = thisKeyset.subtrees[0];
+	UIKBTree *thisMiddleRow = thisKeyset.subtrees[1];
+	UIKBTree *thisBottomRow = thisKeyset.subtrees[2];
+	UIKBTree *subTopRow = subKeyset.subtrees[0];
+	UIKBTree *subMiddleRow = subKeyset.subtrees[1];
+	UIKBTree *subBottomRow = subKeyset.subtrees[2];
+
+	// top row is mapped as-is
+	int count = MIN(thisTopRow.subtrees.count, subTopRow.subtrees.count);
+	for (int i = 0; i < count; i++) {
+		UIKBTree *thisKey = thisTopRow.subtrees[i], *subKey = subTopRow.subtrees[i];
+		NSString *cleanName = [thisKey.name stringByReplacingOccurrencesOfString:@"-Small-Display" withString:@""];
+		if (smallToCaps) cleanName = [cleanName stringByReplacingOccurrencesOfString:@"-Small-Letter" withString:@"-Capital-Letter"];
+		result[cleanName] = @[subKey.representedString, subKey.displayString];
+	}
+
+	// middle row is mapped as-is
+	count = MIN(thisMiddleRow.subtrees.count, subMiddleRow.subtrees.count);
+	for (int i = 0; i < count; i++) {
+		UIKBTree *thisKey = thisMiddleRow.subtrees[i], *subKey = subMiddleRow.subtrees[i];
+		NSString *cleanName = [thisKey.name stringByReplacingOccurrencesOfString:@"-Small-Display" withString:@""];
+		if (smallToCaps) cleanName = [cleanName stringByReplacingOccurrencesOfString:@"-Small-Letter" withString:@"-Capital-Letter"];
+		result[cleanName] = @[subKey.representedString, subKey.displayString];
+	}
+
+	// bottom row requires a bit more work
+	NSMutableArray *bottomKeys = [NSMutableArray array];
+	if (thisMiddleRow.subtrees.count == (subMiddleRow.subtrees.count - 1)) {
+		// carry the last key over if it's been left behind
+		UIKBTree *subKey = subMiddleRow.subtrees.lastObject;
+		[bottomKeys addObject:@[subKey.representedString, subKey.displayString]];
+	}
+
+	for (UIKBTree *subKey in subBottomRow.subtrees) {
+		[bottomKeys addObject:@[subKey.representedString, subKey.displayString]];
+	}
+
+	// add the ellipsis because it's cool
+	if ([keyplane.name containsString:@"-Letters"] && bottomKeys.count < thisBottomRow.subtrees.count) {
+		[bottomKeys insertObject:@[@"…", @"…"] atIndex:2];
+	}
+
+	// now shove all those in
+	count = MIN(thisBottomRow.subtrees.count, bottomKeys.count);
+	for (int i = 0; i < count; i++) {
+		UIKBTree *thisKey = thisBottomRow.subtrees[i];
+		NSString *cleanName = [thisKey.name stringByReplacingOccurrencesOfString:@"-Small-Display" withString:@""];
+		if (smallToCaps) cleanName = [cleanName stringByReplacingOccurrencesOfString:@"-Small-Letter" withString:@"-Capital-Letter"];
+		if (![thisKey.representedString isEqualToString:bottomKeys[i][0]])
+			result[cleanName] = bottomKeys[i];
+	}
+
+	return [NSDictionary dictionaryWithDictionary:result];
+}
+@end
+
 %hook UIKBTree
 - (int)displayTypeHint {
 	int type = %orig;
@@ -82,6 +151,8 @@ static bool lieAboutGestureKeys = false;
 	// we are in a keyplane, we need to know what keyboard we are
 	NSLog(@"I'm being patched...! %@", [self stringForProperty:@"fp-kb-name"]);
 
+	BOOL replaceCapitalBySmall = NO;
+
 	NSString *kbName = [self stringForProperty:@"fp-kb-name"];
 	if ([self.name hasSuffix:@"Capital-Letters"]) {
 		// we might need to fallback
@@ -89,14 +160,18 @@ static bool lieAboutGestureKeys = false;
 		if (![flag boolValue]) {
 			// user is not using separate caps
 			kbName = [self stringForProperty:@"fp-kb-altname"];
+			replaceCapitalBySmall = YES;
 		}
 	}
 
 	NSDictionary *config = kbFetchProp(kbName);
 	if (config == nil) {
-		// warn...?
-		NSLog(@"Can't find config %@!!", kbName);
-		return;
+		NSLog(@"Can't find config %@!! Using a default...", kbName);
+		UIKBTree *keylayout = self.subtrees[0];
+		UIKBTree *subKeylayout = keylayout.cachedGestureLayout;
+		config = [keylayout nfpGenerateKeylayoutConfigBasedOffKeylayout:subKeylayout inKeyplane:self rewriteSmallToCapital:replaceCapitalBySmall];
+		// we store this in the propcache but not to preferences
+		kbPropCache[kbName] = config;
 	}
 
 	for (UIKBTree *keylayout in self.subtrees) {
@@ -109,6 +184,9 @@ static bool lieAboutGestureKeys = false;
 			for (UIKBTree *key in list.subtrees) {
 				if (key.displayType == 0 || key.displayType == 8) {
 					NSString *checkName = [key.name stringByReplacingOccurrencesOfString:@"-Small-Display" withString:@""];
+					if (replaceCapitalBySmall)
+						checkName = [checkName stringByReplacingOccurrencesOfString:@"-Capital" withString:@"-Small"];
+
 					NSArray *cfgKey = config[checkName];
 					if (cfgKey == nil) {
 						if (key.displayTypeHint == 10) {
@@ -168,6 +246,14 @@ static bool lieAboutGestureKeys = false;
 			NSString *altName = [NSString stringWithFormat:@"kb-%@--Small-Letters--flicks", cleanName];
 			[keyplane setObject:altName forProperty:@"fp-kb-altname"];
 		}
+
+		// this is necessary so that cachedGestureLayout will be set
+		// which we need when calling nfpGenerateKeylayoutConfigBasedOffKeylayout
+		// to generate a default config
+		if ([cleanPlaneName hasSuffix:@"Letters"])
+			[keyplane setObject:[keyplane alternateKeyplaneName] forProperty:@"gesture-keyplane"];
+		else if ([cleanPlaneName isEqualToString:@"Numbers-And-Punctuation"])
+			[keyplane setObject:[keyplane shiftAlternateKeyplaneName] forProperty:@"gesture-keyplane"];
 	}
 
 	return tree;
@@ -241,10 +327,9 @@ static NSString *resolveColour(NSString *name) {
 		@"darkSymbols": @"lgrey"
 	}];
 	[preferences registerPreferenceChangeBlock:^{
-		NSLog(@"I'm %@ and I've seen a change!", [[NSBundle mainBundle] bundleIdentifier]);
+		// NSLog(@"I'm %@ and I've seen a change!", [[NSBundle mainBundle] bundleIdentifier]);
 		lightSymbolsColour = resolveColour([preferences objectForKey:@"lightSymbols"]);
 		darkSymbolsColour = resolveColour([preferences objectForKey:@"darkSymbols"]);
-		NSLog(@"Now using %@ and %@", lightSymbolsColour, darkSymbolsColour);
 		[kbPropCache removeAllObjects];
 		[[%c(UIKeyboardCache) sharedInstance] purge];
 		// maybe also [UIKBRenderer clearInternalCaches] ??
