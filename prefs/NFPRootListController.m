@@ -3,6 +3,7 @@
 #import <Preferences/PSSpecifier.h>
 #import <Preferences/PSTableCell.h>
 #import <Cephei/HBRespringController.h>
+#import <Cephei/HBPreferences.h>
 #import <CepheiPrefs/HBLinkTableCell.h>
 #import "../h/UIKeyboardInputMode.h"
 #import "../h/UIKeyboardInputModeController.h"
@@ -63,11 +64,13 @@
 	return _specifiers;
 }
 
-- (void)hb_respringAndReturn:(PSSpecifier *)specifier {
-	PSTableCell *cell = [self cachedCellForSpecifier:specifier];
-	cell.cellEnabled = NO;
-	[HBRespringController respringAndReturnTo:[HBRespringController _preferencesReturnURL]];
+
+- (void)resetSettingsTapped:(PSSpecifier *)specifier {
+	HBPreferences *prefs = [[HBPreferences alloc] initWithIdentifier:@"org.wuffs.flickplus"];
+	[prefs removeAllObjects];
+	[self reloadSpecifiers];
 }
+
 
 - (void)hb_openURL:(PSSpecifier *)specifier {
 	NSURL *url = [NSURL URLWithString:specifier.properties[@"url"]];

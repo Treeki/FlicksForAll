@@ -73,7 +73,7 @@
 			];
 		[_modeSpecText setProperty:@(NFPModeText) forKey:@"fp-mode"];
 		_modeSpecDual = [PSSpecifier
-			preferenceSpecifierNamed:@"Dual Text/Character"
+			preferenceSpecifierNamed:@"Dual Text/Character (Experimental)"
 			target:self set:nil get:nil detail:Nil
 			cell:PSListItemCell edit:Nil
 			];
