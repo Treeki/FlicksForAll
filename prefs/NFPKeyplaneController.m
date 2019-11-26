@@ -1,7 +1,7 @@
 #include "NFPKeyplaneController.h"
 #import <Preferences/PSSpecifier.h>
 #import "NFPKeyPropsController.h"
-#import "Utils.h"
+#import "../Utils.h"
 #import <Cephei/HBPreferences.h>
 #include <objc/runtime.h>
 #import <notify.h>
@@ -78,7 +78,7 @@ enum {
 		NSArray *alternativeKeyplanes = [self selectAlternativeKeyplanesFrom:_keyboard ignoringPlane:_keyplane];
 		if (alternativeKeyplanes.count > 0) {
 			PSSpecifier *group = [PSSpecifier groupSpecifierWithName:@"Templates"];
-			[group setProperty:@"Sets up shortcuts so that flicking a key will give you the corresponding key on the other page, like the default iPad keyboard." forKey:@"footerText"];
+			[group setProperty:@"Sets up shortcuts so that flicking a key will give you the corresponding key on the other page, like the default iPad keyboard. A good default starting point." forKey:@"footerText"];
 			[specs addObject:group];
 
 			for (UIKBTree *alternative in alternativeKeyplanes) {

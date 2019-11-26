@@ -1,7 +1,7 @@
 #include "NFPKeyboardController.h"
 #import "NFPKeyplaneController.h"
 #import <Preferences/PSSpecifier.h>
-#import "Utils.h"
+#import "../Utils.h"
 #include <objc/runtime.h>
 
 @implementation NFPKeyboardController

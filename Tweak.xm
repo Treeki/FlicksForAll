@@ -10,17 +10,20 @@
 #include "h/UIKBRenderConfig.h"
 #include "h/UIKBRenderFactory.h"
 #include "h/UIKBRenderFactoryiPhone.h"
+#include "Utils.h"
 #include <Cephei/HBPreferences.h>
 
 static HBPreferences *preferences;
+static NSMutableDictionary *kbPropCache;
 static NSString *lightSymbolsColour, *darkSymbolsColour;
 
-static UIKBTree *findLettersKeylayout(UIKBTree *keyplane) {
-	for (UIKBTree *keylayout in keyplane.subtrees) {
-		if ([keylayout.name hasSuffix:@"Letters-Keylayout"] || [keylayout.name hasSuffix:@"Full-3Row-Keylayout"] || [keylayout.name hasSuffix:@"Letters-Full-Keylayout"])
-			return keylayout;
+static id kbFetchProp(NSString *key) {
+	id value = kbPropCache[key];
+	if (value == nil) {
+		value = preferences[key];
+		kbPropCache[key] = value;
 	}
-	return nil;
+	return value;
 }
 
 static bool lieAboutGestureKeys = false;
@@ -75,68 +78,66 @@ static bool lieAboutGestureKeys = false;
 }
 
 - (void)updateFlickKeycapOnKeys {
-	%orig;
+	// it's Keyboard Fun Time!
+	// we are in a keyplane, we need to know what keyboard we are
+	NSLog(@"I'm being patched...! %@", [self stringForProperty:@"fp-kb-name"]);
 
-	// we only want to patch certain planes
-	bool ok = [self.name hasSuffix:@"-Letters"] || [self.name hasSuffix:@"-Letters-Small-Display"] || [self.name hasSuffix:@"_Letters"];
-	if (!ok)
+	NSString *kbName = [self stringForProperty:@"fp-kb-name"];
+	if ([self.name hasSuffix:@"Capital-Letters"]) {
+		// we might need to fallback
+		id flag = kbFetchProp([self stringForProperty:@"fp-kb-altflag"]);
+		if (![flag boolValue]) {
+			// user is not using separate caps
+			kbName = [self stringForProperty:@"fp-kb-altname"];
+		}
+	}
+
+	NSDictionary *config = kbFetchProp(kbName);
+	if (config == nil) {
+		// warn...?
+		NSLog(@"Can't find config %@!!", kbName);
 		return;
-
-	UIKBTree *mainKeylayout = findLettersKeylayout(self);
-	if (mainKeylayout == nil) {
-		NSLog(@"WARNING: could not find letters keylayout in %@", self.description);
-		return;
-	}
-	UIKBTree *subKeylayout = mainKeylayout.cachedGestureLayout;
-
-	UIKBTree *origKeyset = mainKeylayout.keySet;
-	UIKBTree *subKeyset = subKeylayout.keySet;
-
-	// int rowCount = MIN(origKeyset.subtrees.count, subKeyset.subtrees.count);
-	// NSMutableArray *overspill = [NSMutableArray array];
-	NSMutableArray *displayStrings = [NSMutableArray array];
-	NSMutableArray *representedStrings = [NSMutableArray array];
-
-	// under some layouts, the first key gets left behind, so we wanna map that
-	UIKBTree *origMiddleRow = [origKeyset.subtrees objectAtIndex:1];
-	UIKBTree *subMiddleRow = [subKeyset.subtrees objectAtIndex:1];
-	if (origMiddleRow.subtrees.count == (subMiddleRow.subtrees.count - 1)) {
-		UIKBTree *key = subMiddleRow.subtrees.firstObject;
-		[displayStrings addObject:key.displayString];
-		[representedStrings addObject:key.representedString];
 	}
 
-	// now we want to add the sub row
-	UIKBTree *origBottomRow = [origKeyset.subtrees objectAtIndex:2];
-	UIKBTree *subBottomRow = [subKeyset.subtrees objectAtIndex:2];
-	for (UIKBTree *key in subBottomRow.subtrees) {
-		[displayStrings addObject:key.displayString];
-		[representedStrings addObject:key.representedString];
+	for (UIKBTree *keylayout in self.subtrees) {
+		if (keylayout.type != 3)
+			continue;
+
+		UIKBTree *keySet = [keylayout keySet];
+		
+		for (UIKBTree *list in keySet.subtrees) {
+			for (UIKBTree *key in list.subtrees) {
+				if (key.displayType == 0 || key.displayType == 8) {
+					NSString *checkName = [key.name stringByReplacingOccurrencesOfString:@"-Small-Display" withString:@""];
+					NSArray *cfgKey = config[checkName];
+					if (cfgKey == nil) {
+						if (key.displayTypeHint == 10) {
+							// clear existing gesture keys just in case
+							key.displayTypeHint = 0;
+						}
+					} else if (cfgKey.count == 2) {
+						// text key
+						key.displayTypeHint = 10;
+						NSString *rep = cfgKey[0], *disp = cfgKey[1];
+						key.secondaryRepresentedStrings = @[rep];
+						key.secondaryDisplayStrings = @[
+							(disp && disp.length) ? disp : rep
+						];
+					} else if (cfgKey.count == 4) {
+						// dual key
+						key.displayTypeHint = 10;
+						NSString *repA = cfgKey[0], *dispA = cfgKey[1];
+						NSString *repB = cfgKey[2], *dispB = cfgKey[3];
+						key.secondaryRepresentedStrings = @[repA, repB];
+						key.secondaryDisplayStrings = @[
+							(dispA && dispA.length) ? dispA : repA,
+							(dispB && dispB.length) ? dispB : repB
+						];
+					}
+				}
+			}
+		}
 	}
-
-	// is there space to add the ellipsis?
-	if (displayStrings.count < origBottomRow.subtrees.count) {
-		int i = 2;
-		[displayStrings insertObject:@"…" atIndex:i];
-		[representedStrings insertObject:@"…" atIndex:i];
-	}
-
-	// iOS doesn't seem to care *what* key is assigned to gestureKey
-	// ... so we just fake it
-	// (nil also seems to work, in preliminary testing)
-	UIKBTree *surrogateKey = subBottomRow.subtrees.firstObject;
-
-	int mapCount = MIN(origBottomRow.subtrees.count, displayStrings.count);
-	NSLog(@"mapping %d keys", mapCount);
-	for (int i = 0; i < mapCount; i++) {
-		UIKBTree *origKey = [origBottomRow.subtrees objectAtIndex:i];
-
-		origKey.secondaryDisplayStrings = @[[displayStrings objectAtIndex:i]];
-		origKey.secondaryRepresentedStrings = @[[representedStrings objectAtIndex:i]];
-		origKey.displayTypeHint = 10; // this enables the gesture behaviour!
-		origKey.gestureKey = surrogateKey;
-	}
-	NSLog(@"all done");
 }
 %end
 
@@ -147,15 +148,25 @@ static bool lieAboutGestureKeys = false;
 	NSLog(@"Requesting deserialisation of keyboard %@", name);
 	UIKBTree *tree = %orig;
 
-	for (UIKBTree *keyplane in tree.subtrees) {
-		if ([keyplane.name hasSuffix:@"-Letters"] || [keyplane.name hasSuffix:@"-Letters-Small-Display"] || [keyplane.name hasSuffix:@"_Letters"]) {
-			NSString *other = [keyplane alternateKeyplaneName];
-			[keyplane setObject:other forProperty:@"gesture-keyplane"];
-		}
+	NSString *cleanName = name;
+	if ([cleanName hasPrefix:@"iPhone-"]) {
+		NSRange searchRange = NSMakeRange(7, cleanName.length - 7);
+		NSUInteger secondHyphen = [cleanName rangeOfString:@"-" options:0 range:searchRange].location;
+		if (secondHyphen != NSNotFound)
+			cleanName = [cleanName substringFromIndex:secondHyphen + 1];
+	}
 
-		if ([keyplane.name hasSuffix:@"_Numbers-And-Punctuation"]) {
-			NSString *other = [keyplane shiftAlternateKeyplaneName];
-			[keyplane setObject:other forProperty:@"gesture-keyplane"];
+	for (UIKBTree *keyplane in tree.subtrees) {
+		NSString *cleanPlaneName = [keyplane.name sliceAfterLastUnderscore];
+		cleanPlaneName = [cleanPlaneName stringByReplacingOccurrencesOfString:@"-Small-Display" withString:@""];
+
+		NSString *mainName = [NSString stringWithFormat:@"kb-%@--%@--flicks", cleanName, cleanPlaneName];
+		[keyplane setObject:mainName forProperty:@"fp-kb-name"];
+		if ([cleanPlaneName isEqualToString:@"Capital-Letters"]) {
+			NSString *flagName = [NSString stringWithFormat:@"kb-%@-capsAreSeparate", cleanName];
+			[keyplane setObject:flagName forProperty:@"fp-kb-altflag"];
+			NSString *altName = [NSString stringWithFormat:@"kb-%@--Small-Letters--flicks", cleanName];
+			[keyplane setObject:altName forProperty:@"fp-kb-altname"];
 		}
 	}
 
@@ -222,6 +233,8 @@ static NSString *resolveColour(NSString *name) {
 
 
 %ctor {
+	kbPropCache = [NSMutableDictionary dictionary];
+
 	preferences = [[HBPreferences alloc] initWithIdentifier:@"org.wuffs.flickplus"];
 	[preferences registerDefaults:@{
 		@"lightSymbols": @"lgrey",
@@ -232,6 +245,7 @@ static NSString *resolveColour(NSString *name) {
 		lightSymbolsColour = resolveColour([preferences objectForKey:@"lightSymbols"]);
 		darkSymbolsColour = resolveColour([preferences objectForKey:@"darkSymbols"]);
 		NSLog(@"Now using %@ and %@", lightSymbolsColour, darkSymbolsColour);
+		[kbPropCache removeAllObjects];
 		[[%c(UIKeyboardCache) sharedInstance] purge];
 		// maybe also [UIKBRenderer clearInternalCaches] ??
 	}];

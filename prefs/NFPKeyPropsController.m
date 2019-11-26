@@ -1,7 +1,7 @@
 #include "NFPKeyPropsController.h"
 #import <Preferences/PSSpecifier.h>
 #import "NFPKeyplaneController.h"
-#import "Utils.h"
+#import "../Utils.h"
 #include <objc/runtime.h>
 
 @interface PSSetupController : PSViewController
@@ -56,7 +56,7 @@
 		NSString *niceName = [[_key.name sliceAfterLastUnderscore] hyphensToSpaces];
 		self.title = [NSString stringWithFormat:@"%@ (%@)", niceName, _key.displayString];
 
-		PSSpecifier *group = [PSSpecifier groupSpecifierWithName:@"Action"];
+		PSSpecifier *group = [PSSpecifier groupSpecifierWithName:@"Action on Swipe Down"];
 		[group setProperty:@YES forKey:@"isRadioGroup"];
 		[specs addObject:group];
 
