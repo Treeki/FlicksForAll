@@ -248,6 +248,9 @@ static NSString *currencyFix(NSString *str) {
 	BOOL replaceCapitalBySmall = NO;
 
 	NSString *kbName = [self stringForProperty:@"fp-kb-name"];
+	if (kbName == nil)
+		return;
+
 	if ([self.name hasSuffix:@"Capital-Letters"]) {
 		// we might need to fallback
 		id flag = kbFetchProp([self stringForProperty:@"fp-kb-altflag"]);
@@ -336,6 +339,7 @@ static NSString *currencyFix(NSString *str) {
 	if ([cleanName hasSuffix:@"-Email"]) return tree;
 	if ([cleanName hasSuffix:@"-DecimalPad"]) return tree;
 	if ([cleanName hasSuffix:@"-AlphaWithURL"]) return tree;
+	if ([cleanName containsString:@"Emoji"]) return tree;
 
 	// Twitter keyboard just uses standard stuff
 	if ([cleanName hasSuffix:@"-Twitter"])
