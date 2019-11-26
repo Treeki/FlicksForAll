@@ -137,6 +137,47 @@ static bool lieAboutGestureKeys = false;
 }
 @end
 
+
+
+extern "C" {
+NSString *UIKeyboardGetCurrentInputMode();
+NSString *UIKeyboardLocalizedString(NSString *key, NSString *language, NSString *unk, NSString *def);
+id UIKeyboardLocalizedObject(NSString *key, NSString *language, NSString *unk, id def, BOOL unk2);
+};
+
+@interface NSLocale (MissingStuff)
++ (NSLocale *)preferredLocale;
+@end
+
+static NSString *currencyFix(NSString *str) {
+	// based heavily off the logic in -[UIKeyboardLayoutStar setCurrencyKeysForCurrentLocaleOnKeyplane:]
+	NSString *localObjName = nil, *defChar = nil;
+	if ([str isEqualToString:@"¤1"]) {
+		localObjName = @"UI-PrimaryCurrencySign";
+		defChar = @"$";
+	} else if ([str isEqualToString:@"¤2"]) {
+		localObjName = @"UI-AlternateCurrencySign-1";
+		defChar = @"€";
+	} else if ([str isEqualToString:@"¤3"]) {
+		localObjName = @"UI-AlternateCurrencySign-2";
+		defChar = @"@";
+	} else if ([str isEqualToString:@"¤4"]) {
+		localObjName = @"UI-AlternateCurrencySign-3";
+		defChar = @"¥";
+	} else if ([str isEqualToString:@"¤5"]) {
+		localObjName = @"UI-AlternateCurrencySign-4";
+		defChar = @"₩";
+	} else {
+		return str;
+	}
+
+	// could probably optimise things by caching some of these calls...?
+	str = UIKeyboardLocalizedObject(localObjName, [[NSLocale preferredLocale] localeIdentifier], 0, 0, NO);
+	if (!str)
+		str = UIKeyboardLocalizedString(localObjName, UIKeyboardGetCurrentInputMode(), 0, defChar);
+	return str;
+}
+
 %hook UIKBTree
 - (int)displayTypeHint {
 	int type = %orig;
@@ -197,6 +238,8 @@ static bool lieAboutGestureKeys = false;
 						// text key
 						key.displayTypeHint = 10;
 						NSString *rep = cfgKey[0], *disp = cfgKey[1];
+						if ([rep hasPrefix:@"¤"]) rep = currencyFix(rep);
+						if ([disp hasPrefix:@"¤"]) disp = currencyFix(disp);
 						key.secondaryRepresentedStrings = @[rep];
 						key.secondaryDisplayStrings = @[
 							(disp && disp.length) ? disp : rep
@@ -206,6 +249,10 @@ static bool lieAboutGestureKeys = false;
 						key.displayTypeHint = 10;
 						NSString *repA = cfgKey[0], *dispA = cfgKey[1];
 						NSString *repB = cfgKey[2], *dispB = cfgKey[3];
+						if ([repA hasPrefix:@"¤"]) repA = currencyFix(repA);
+						if ([repB hasPrefix:@"¤"]) repB = currencyFix(repB);
+						if ([dispA hasPrefix:@"¤"]) dispA = currencyFix(dispA);
+						if ([dispB hasPrefix:@"¤"]) dispB = currencyFix(dispB);
 						key.secondaryRepresentedStrings = @[repA, repB];
 						key.secondaryDisplayStrings = @[
 							(dispA && dispA.length) ? dispA : repA,
