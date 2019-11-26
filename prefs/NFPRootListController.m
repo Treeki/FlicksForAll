@@ -6,6 +6,8 @@
 #import <CepheiPrefs/HBLinkTableCell.h>
 #import "../h/UIKeyboardInputMode.h"
 #import "../h/UIKeyboardInputModeController.h"
+#import "../h/UIKeyboardCache.h"
+#include <objc/runtime.h>
 
 @interface HBRespringController (TerribleHack)
 + (NSURL *)_preferencesReturnURL;
@@ -33,27 +35,25 @@
 			}
 		}
 
-		NSArray *modes = [[UIKeyboardInputModeController sharedInputModeController] activeInputModes];
+		NSArray *inputModeIDs = [[UIKeyboardInputModeController sharedInputModeController] activeInputModeIdentifiers];
+		NSSet *layouts = [[objc_getClass("UIKeyboardCache") sharedInstance] uniqueLayoutsFromInputModes:inputModeIDs];
 		int listIndex = 3;
 
 		// this can maybe be made nicer by using PSListController methods
-		// find all the keyboards
-		for (UIKeyboardInputMode *mode in modes) {
-			NSLog(@"found mode %@", [mode identifier]);
-			if (mode.isExtensionInputMode)
+		for (NSString *layout in layouts) {
+			if ([layout isEqualToString:@"Emoji"])
 				continue;
 
 			PSSpecifier *spec = [PSSpecifier
-				preferenceSpecifierNamed:[mode extendedDisplayName]
+				preferenceSpecifierNamed:layout
 				target:self
 				set:NULL
 				get:NULL
 				detail:[NFPKeyboardController class]
 				cell:PSLinkCell
 				edit:Nil];
-			// spec.buttonAction = @selector(editKeyboardSettings:);
 			[spec setProperty:@YES forKey:@"enabled"];
-			[spec setProperty:[mode identifier] forKey:@"fp-keyboard-mode"];
+			[spec setProperty:layout forKey:@"fp-keyboard-layout"];
 			[specs insertObject:spec atIndex:listIndex++];
 		}
 
@@ -73,12 +73,5 @@
 	NSURL *url = [NSURL URLWithString:specifier.properties[@"url"]];
 	[[UIApplication sharedApplication] openURL:url];
 }
-
-
-
-// - (void)editKeyboardSettings:(PSSpecifier *)specifier {
-// // 	NSString *modeID = [specifier propertyForKey:@"fp-keyboard-mode"];
-// // 	NSLog(@"gonna edit stuff for mode %@", modeID);
-// // }
 
 @end
