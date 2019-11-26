@@ -1,5 +1,4 @@
 #include "NFPKeyPropsController.h"
-#import <Preferences/PSSpecifier.h>
 #import "NFPKeyplaneController.h"
 #import "../Utils.h"
 #include <objc/runtime.h>
@@ -95,52 +94,52 @@
 		// populate the mode-specific specifiers
 		group = [PSSpecifier groupSpecifierWithName:@"Text"];
 		[group setProperty:@"This text will be typed when you swipe down on this key." forKey:@"footerText"];
-		_representedStringSpec = [PSSpecifier
+		_representedStringSpec = [PSTextFieldSpecifier
 			preferenceSpecifierNamed:@"Text to Insert"
 			target:self
 			set:@selector(setThing:forSpecifier:)
 			get:@selector(getThingForSpecifier:)
 			detail:Nil cell:PSEditTextCell edit:Nil];
-		_displayStringSpec = [PSSpecifier
+		_displayStringSpec = [PSTextFieldSpecifier
 			preferenceSpecifierNamed:@"Text on Keycap"
 			target:self
 			set:@selector(setThing:forSpecifier:)
 			get:@selector(getThingForSpecifier:)
 			detail:Nil cell:PSEditTextCell edit:Nil];
-		[_displayStringSpec setProperty:@"(optional)" forKey:@"placeholder"];
+		_displayStringSpec.placeholder = @"(optional)";
 		_textSpecifierArray = @[group, _representedStringSpec, _displayStringSpec];
 
 		group = [PSSpecifier groupSpecifierWithName:@"Top Left Corner"];
 		[group setProperty:@"This text will be typed when you swipe down and to the right on this key." forKey:@"footerText"];
-		_leftRepresentedStringSpec = [PSSpecifier
+		_leftRepresentedStringSpec = [PSTextFieldSpecifier
 			preferenceSpecifierNamed:@"Text to Insert"
 			target:self
 			set:@selector(setThing:forSpecifier:)
 			get:@selector(getThingForSpecifier:)
 			detail:Nil cell:PSEditTextCell edit:Nil];
-		_leftDisplayStringSpec = [PSSpecifier
+		_leftDisplayStringSpec = [PSTextFieldSpecifier
 			preferenceSpecifierNamed:@"Text on Keycap"
 			target:self
 			set:@selector(setThing:forSpecifier:)
 			get:@selector(getThingForSpecifier:)
 			detail:Nil cell:PSEditTextCell edit:Nil];
-		[_leftDisplayStringSpec setProperty:@"(optional)" forKey:@"placeholder"];
+		_leftDisplayStringSpec.placeholder = @"(optional)";
 
 		PSSpecifier *group2 = [PSSpecifier groupSpecifierWithName:@"Top Right Corner"];
 		[group2 setProperty:@"This text will be typed when you swipe down and to the left on this key." forKey:@"footerText"];
-		_rightRepresentedStringSpec = [PSSpecifier
+		_rightRepresentedStringSpec = [PSTextFieldSpecifier
 			preferenceSpecifierNamed:@"Text to Insert"
 			target:self
 			set:@selector(setThing:forSpecifier:)
 			get:@selector(getThingForSpecifier:)
 			detail:Nil cell:PSEditTextCell edit:Nil];
-		_rightDisplayStringSpec = [PSSpecifier
+		_rightDisplayStringSpec = [PSTextFieldSpecifier
 			preferenceSpecifierNamed:@"Text on Keycap"
 			target:self
 			set:@selector(setThing:forSpecifier:)
 			get:@selector(getThingForSpecifier:)
 			detail:Nil cell:PSEditTextCell edit:Nil];
-		[_rightDisplayStringSpec setProperty:@"(optional)" forKey:@"placeholder"];
+		_rightDisplayStringSpec.placeholder = @"(optional)";
 		_dualSpecifierArray = @[group, _leftRepresentedStringSpec, _leftDisplayStringSpec, group2, _rightRepresentedStringSpec, _rightDisplayStringSpec];
 
 		int startingMode = _mode;
@@ -157,6 +156,7 @@
 }
 
 - (void)saveMe:(UIBarButtonItem *)item {
+	[self.view endEditing:YES];
 	NFPKeyplaneController *kpc = (NFPKeyplaneController *)self.parentController.parentController;
 	[kpc saveKeyInfoBackFrom:self];
 	[(PSSetupController *)self.parentController dismiss];
@@ -232,7 +232,8 @@
 }
 
 - (void)_checkValidity {
-	BOOL ok = NO;
+	// maybe later...
+	/*BOOL ok = NO;
 
 	switch (_mode) {
 		case NFPModeNothing:
@@ -246,7 +247,7 @@
 			break;
 	}
 
-	_saveButton.enabled = ok;
+	_saveButton.enabled = ok;*/
 }
 
 
