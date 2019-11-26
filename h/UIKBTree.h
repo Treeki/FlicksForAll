@@ -30,6 +30,7 @@
 - (id)representedString;
 - (int)displayType;
 - (int)displayTypeHint;
+- (long long)selectedVariantIndex;
 - (void)setDisplayTypeHint:(int)arg1;
 - (void)setGestureKey:(id)arg1;
 - (bool)setObject:(id)arg1 forProperty:(id)arg2;

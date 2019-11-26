@@ -19,6 +19,7 @@
 static HBPreferences *preferences;
 static NSMutableDictionary *kbPropCache;
 static NSString *lightSymbolsColour, *darkSymbolsColour;
+static bool hapticFeedbackEnabled = YES;
 static double symbolFontScale = 1.0;
 
 static id kbFetchProp(NSString *key) {
@@ -30,7 +31,16 @@ static id kbFetchProp(NSString *key) {
 	return value;
 }
 
+@interface _UIClickFeedbackGenerator : UIFeedbackGenerator
+-(id)initWithCoordinateSpace:(id)arg1;
+-(void)pressedDown;
+-(void)pressedUp;
+@end
+
 static bool lieAboutGestureKeys = false;
+static bool doingDragOnKey = false;
+static _UIClickFeedbackGenerator *clickFeedback = nil;
+static bool lastFeedbackWasDown = false;
 
 %hook UIKeyboardTouchInfo
 %property (nonatomic, assign) bool fpAllow;
@@ -57,12 +67,57 @@ static bool lieAboutGestureKeys = false;
 
 	if (touchInfo.fpAllow) {
 		// this lets a continuous path happen
+		if (clickFeedback != nil) {
+			// if we played a click-down feedback, nullify it
+			// to signal to the user that the flick is now off-limitsb
+			if (lastFeedbackWasDown)
+				[clickFeedback pressedUp];
+			clickFeedback = nil;
+		}
+
 		lieAboutGestureKeys = true;
 		%orig;
 		lieAboutGestureKeys = false;
 	} else {
 		%orig;
 	}
+}
+
+- (void)updatePanAlternativesForTouchInfo:(UIKeyboardTouchInfo *)touchInfo {
+	if (clickFeedback == nil && hapticFeedbackEnabled) {
+		// delaying the prepare call might be possible slightly
+		// to potentially save a bit of battery
+		clickFeedback = [[_UIClickFeedbackGenerator alloc] initWithCoordinateSpace:self];
+		[clickFeedback prepare];
+		lastFeedbackWasDown = false;
+	}
+
+	doingDragOnKey = true;
+	%orig;
+	doingDragOnKey = false;
+}
+
+- (void)resetPanAlternativesForEndedTouch:(id)touch {
+	if (clickFeedback != nil) {
+		clickFeedback = nil;
+	}
+}
+%end
+
+%hook UIKBTree
+- (void)setSelectedVariantIndex:(long long)index {
+	if (doingDragOnKey && clickFeedback != nil) {
+		if (self.selectedVariantIndex != index) {
+			if (index == 0 || index == 1) {
+				[clickFeedback pressedDown];
+				lastFeedbackWasDown = true;
+			} else {
+				[clickFeedback pressedUp];
+				lastFeedbackWasDown = false;
+			}
+		}
+	}
+	%orig;
 }
 %end
 
@@ -480,11 +535,13 @@ static NSString *resolveColour(NSString *name) {
 	[preferences registerDefaults:@{
 		@"lightSymbols": @"lgrey",
 		@"darkSymbols": @"lgrey",
+		@"hapticFeedback": @YES,
 		@"smallSymbols": @NO
 	}];
 	[preferences registerPreferenceChangeBlock:^{
 		lightSymbolsColour = resolveColour([preferences objectForKey:@"lightSymbols"]);
 		darkSymbolsColour = resolveColour([preferences objectForKey:@"darkSymbols"]);
+		hapticFeedbackEnabled = [preferences boolForKey:@"hapticFeedback"];
 		symbolFontScale = [preferences boolForKey:@"smallSymbols"] ? 0.7 : 1.0;
 		[kbPropCache removeAllObjects];
 		[[%c(UIKeyboardCache) sharedInstance] purge];
