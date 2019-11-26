@@ -274,6 +274,21 @@ static NSString *currencyFix(NSString *str) {
 	UIKBTree *tree = %orig;
 
 	NSString *cleanName = name;
+
+	// for now, we exclude certain ones...
+	if ([cleanName hasSuffix:@"-URL"]) return tree;
+	if ([cleanName hasSuffix:@"-NumberPad"]) return tree;
+	if ([cleanName hasSuffix:@"-PhonePad"]) return tree;
+	if ([cleanName hasSuffix:@"-NamePhonePad"]) return tree;
+	if ([cleanName hasSuffix:@"-Email"]) return tree;
+	if ([cleanName hasSuffix:@"-DecimalPad"]) return tree;
+	if ([cleanName hasSuffix:@"-AlphaWithURL"]) return tree;
+
+	// Twitter keyboard just uses standard stuff
+	if ([cleanName hasSuffix:@"-Twitter"])
+		cleanName = [cleanName substringToIndex:(cleanName.length - 8)];
+
+	// take out iPhone-{variant}-
 	if ([cleanName hasPrefix:@"iPhone-"]) {
 		NSRange searchRange = NSMakeRange(7, cleanName.length - 7);
 		NSUInteger secondHyphen = [cleanName rangeOfString:@"-" options:0 range:searchRange].location;
