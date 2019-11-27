@@ -34,7 +34,7 @@
 @end
 
 @interface UIKBTree (FlickPlus)
-- (NSDictionary *)nfpGenerateKeylayoutConfigBasedOffKeylayout:(UIKBTree *)subLayout inKeyplane:(UIKBTree *)keyplane rewriteSmallToCapital:(BOOL)smallToCaps;
+- (NSDictionary *)nfpGenerateKeylayoutConfigBasedOffKeylayout:(UIKBTree *)subLayout inKeyplane:(UIKBTree *)keyplane rewriteCapitalToSmall:(BOOL)capsToSmall;
 @end
 
 enum {
@@ -79,7 +79,7 @@ enum {
 			if (gestureKeyplane) {
 				NSLog(@"NFPKeyplaneController creating new default config with gestureKeyplane=%@", gestureKeyplane.name);
 				UIKBTree *gestureKeylayout = gestureKeyplane.subtrees[0];
-				_configData = [[keylayout nfpGenerateKeylayoutConfigBasedOffKeylayout:gestureKeylayout inKeyplane:_keyplane rewriteSmallToCapital:NO] mutableCopy];
+				_configData = [[keylayout nfpGenerateKeylayoutConfigBasedOffKeylayout:gestureKeylayout inKeyplane:_keyplane rewriteCapitalToSmall:NO] mutableCopy];
 			} else {
 				NSLog(@"NFPKeyplaneController creating new blank config");
 				_configData = [NSMutableDictionary dictionary];
@@ -194,7 +194,7 @@ enum {
 		UIKBTree *srcKeyplane = [_keyboard subtreeWithName:srcKeyplaneName];
 		UIKBTree *srcKeylayout = srcKeyplane.subtrees[0];
 		UIKBTree *destKeylayout = _keyplane.subtrees[0];
-		_configData = [[destKeylayout nfpGenerateKeylayoutConfigBasedOffKeylayout:srcKeylayout inKeyplane:_keyplane rewriteSmallToCapital:NO] mutableCopy];
+		_configData = [[destKeylayout nfpGenerateKeylayoutConfigBasedOffKeylayout:srcKeylayout inKeyplane:_keyplane rewriteCapitalToSmall:NO] mutableCopy];
 	}
 
 	// give all key specifiers back the latest info

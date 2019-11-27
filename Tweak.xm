@@ -13,10 +13,25 @@
 #include "h/UIKBKeyView.h"
 #include "h/UIKBKeyViewAnimator.h"
 #include <dlfcn.h>
+#include <version.h>
 #include "Utils.h"
-#include <Cephei/HBPreferences.h>
 
+#ifndef FP_NO_CEPHEI
+#include <Cephei/HBPreferences.h>
+#endif
+
+#ifndef kCFCoreFoundationVersionNumber_iOS_13_0
+#define kCFCoreFoundationVersionNumber_iOS_13_0 1665.15
+#endif
+
+#ifndef FP_NO_CEPHEI
 static HBPreferences *preferences;
+#else
+@interface NSUserDefaults (Private)
+- (instancetype)_initWithSuiteName:(NSString *)suiteName container:(NSURL *)container;
+@end
+static NSUserDefaults *preferences;
+#endif
 static NSMutableDictionary *kbPropCache;
 static NSString *lightSymbolsColour, *darkSymbolsColour;
 static bool hapticFeedbackEnabled = YES;
@@ -25,7 +40,7 @@ static double symbolFontScale = 1.0;
 static id kbFetchProp(NSString *key) {
 	id value = kbPropCache[key];
 	if (value == nil) {
-		value = preferences[key];
+		value = [preferences objectForKey:key];
 		kbPropCache[key] = value;
 	}
 	return value;
@@ -122,7 +137,7 @@ static bool lastFeedbackWasDown = false;
 %end
 
 @implementation UIKBTree (FlickPlus)
-- (NSDictionary *)nfpGenerateKeylayoutConfigBasedOffKeylayout:(UIKBTree *)subLayout inKeyplane:(UIKBTree *)keyplane rewriteSmallToCapital:(BOOL)smallToCaps {
+- (NSDictionary *)nfpGenerateKeylayoutConfigBasedOffKeylayout:(UIKBTree *)subLayout inKeyplane:(UIKBTree *)keyplane rewriteCapitalToSmall:(BOOL)capsToSmall {
 	// context: keylayout (NOT keyplane!)
 	if (subLayout == nil) {
 		NSLog(@"nfpGenerateKeylayoutConfigBasedOffKeylayout passed null sublayout!");
@@ -146,7 +161,7 @@ static bool lastFeedbackWasDown = false;
 	for (int i = 0; i < count; i++) {
 		UIKBTree *thisKey = thisTopRow.subtrees[i], *subKey = subTopRow.subtrees[i];
 		NSString *cleanName = [thisKey.name stringByReplacingOccurrencesOfString:@"-Small-Display" withString:@""];
-		if (smallToCaps) cleanName = [cleanName stringByReplacingOccurrencesOfString:@"-Small-Letter" withString:@"-Capital-Letter"];
+		if (capsToSmall) cleanName = [cleanName stringByReplacingOccurrencesOfString:@"-Capital-Letter" withString:@"-Small-Letter"];
 		result[cleanName] = @[subKey.representedString, subKey.displayString];
 	}
 
@@ -155,7 +170,7 @@ static bool lastFeedbackWasDown = false;
 	for (int i = 0; i < count; i++) {
 		UIKBTree *thisKey = thisMiddleRow.subtrees[i], *subKey = subMiddleRow.subtrees[i];
 		NSString *cleanName = [thisKey.name stringByReplacingOccurrencesOfString:@"-Small-Display" withString:@""];
-		if (smallToCaps) cleanName = [cleanName stringByReplacingOccurrencesOfString:@"-Small-Letter" withString:@"-Capital-Letter"];
+		if (capsToSmall) cleanName = [cleanName stringByReplacingOccurrencesOfString:@"-Capital-Letter" withString:@"-Small-Letter"];
 		result[cleanName] = @[subKey.representedString, subKey.displayString];
 	}
 
@@ -181,11 +196,12 @@ static bool lastFeedbackWasDown = false;
 	for (int i = 0; i < count; i++) {
 		UIKBTree *thisKey = thisBottomRow.subtrees[i];
 		NSString *cleanName = [thisKey.name stringByReplacingOccurrencesOfString:@"-Small-Display" withString:@""];
-		if (smallToCaps) cleanName = [cleanName stringByReplacingOccurrencesOfString:@"-Small-Letter" withString:@"-Capital-Letter"];
+		if (capsToSmall) cleanName = [cleanName stringByReplacingOccurrencesOfString:@"-Capital-Letter" withString:@"-Small-Letter"];
 		if (![thisKey.representedString isEqualToString:bottomKeys[i][0]])
 			result[cleanName] = bottomKeys[i];
 	}
 
+	// NSLog(@"Built:: %@", result);
 	return [NSDictionary dictionaryWithDictionary:result];
 }
 @end
@@ -199,8 +215,17 @@ id UIKeyboardLocalizedObject(NSString *key, NSString *language, NSString *unk, i
 };
 
 @interface NSLocale (MissingStuff)
-+ (NSLocale *)preferredLocale;
++ (NSLocale *)preferredLocale; // iOS 13+
++ (NSLocale *)_UIKBPreferredLocale; // iOS 12
 @end
+
+%group Polyfill12
+%hook NSLocale
+%new + (NSLocale *)preferredLocale {
+	return [NSLocale _UIKBPreferredLocale];
+}
+%end
+%end
 
 static NSString *currencyFix(NSString *str) {
 	// based heavily off the logic in -[UIKeyboardLayoutStar setCurrencyKeysForCurrentLocaleOnKeyplane:]
@@ -243,8 +268,13 @@ static NSString *currencyFix(NSString *str) {
 - (void)updateFlickKeycapOnKeys {
 	// it's Keyboard Fun Time!
 	// we are in a keyplane, we need to know what keyboard we are
-	NSLog(@"I'm being patched...! %@", [self stringForProperty:@"fp-kb-name"]);
+	NSLog(@"I'm being patched...! %@ -> %@", self.name, [self stringForProperty:@"fp-kb-name"]);
 
+	// two cases:
+	//    altflag is capsAreSeparate
+	//    true  -> two planes, one Capital, one Small
+	//    false -> one Small plane, used for both
+	//    in which case we need to do special work on Capital plane
 	BOOL replaceCapitalBySmall = NO;
 
 	NSString *kbName = [self stringForProperty:@"fp-kb-name"];
@@ -253,11 +283,15 @@ static NSString *currencyFix(NSString *str) {
 
 	if ([self.name hasSuffix:@"Capital-Letters"]) {
 		// we might need to fallback
-		id flag = kbFetchProp([self stringForProperty:@"fp-kb-altflag"]);
+		NSString *propName = [self stringForProperty:@"fp-kb-altflag"];
+		id flag = kbFetchProp(propName);
 		if (![flag boolValue]) {
 			// user is not using separate caps
+			// so, use the Small plane, and pretend every key is Small
 			kbName = [self stringForProperty:@"fp-kb-altname"];
 			replaceCapitalBySmall = YES;
+			if (flag == nil)
+				kbPropCache[propName] = @NO;
 		}
 	}
 
@@ -266,7 +300,7 @@ static NSString *currencyFix(NSString *str) {
 		NSLog(@"Can't find config %@!! Using a default...", kbName);
 		UIKBTree *keylayout = self.subtrees[0];
 		UIKBTree *subKeylayout = keylayout.cachedGestureLayout;
-		config = [keylayout nfpGenerateKeylayoutConfigBasedOffKeylayout:subKeylayout inKeyplane:self rewriteSmallToCapital:replaceCapitalBySmall];
+		config = [keylayout nfpGenerateKeylayoutConfigBasedOffKeylayout:subKeylayout inKeyplane:self rewriteCapitalToSmall:replaceCapitalBySmall];
 		// we store this in the propcache but not to preferences
 		kbPropCache[kbName] = config;
 	}
@@ -286,11 +320,13 @@ static NSString *currencyFix(NSString *str) {
 
 					NSArray *cfgKey = config[checkName];
 					if (cfgKey == nil) {
+						// NSLog(@"map for %@ not found", checkName);
 						if (key.displayTypeHint == 10) {
 							// clear existing gesture keys just in case
 							key.displayTypeHint = 0;
 						}
 					} else if (cfgKey.count == 2) {
+						// NSLog(@"map for %@ found -> %@", checkName, cfgKey);
 						// text key
 						key.displayTypeHint = 10;
 						NSString *rep = cfgKey[0], *disp = cfgKey[1];
@@ -532,9 +568,21 @@ static NSString *resolveColour(NSString *name) {
 }
 
 
+static void syncPreferences() {
+	lightSymbolsColour = resolveColour([preferences objectForKey:@"lightSymbols"]);
+	darkSymbolsColour = resolveColour([preferences objectForKey:@"darkSymbols"]);
+	hapticFeedbackEnabled = [preferences boolForKey:@"hapticFeedback"];
+	symbolFontScale = [preferences boolForKey:@"smallSymbols"] ? 0.7 : 1.0;
+	[kbPropCache removeAllObjects];
+	[[%c(UIKeyboardCache) sharedInstance] purge];
+	// maybe also [UIKBRenderer clearInternalCaches] ??
+}
+
+
 %ctor {
 	kbPropCache = [NSMutableDictionary dictionary];
 
+#ifndef FP_NO_CEPHEI
 	preferences = [[HBPreferences alloc] initWithIdentifier:@"org.wuffs.flickplus"];
 	[preferences registerDefaults:@{
 		@"lightSymbols": @"lgrey",
@@ -543,14 +591,13 @@ static NSString *resolveColour(NSString *name) {
 		@"smallSymbols": @NO
 	}];
 	[preferences registerPreferenceChangeBlock:^{
-		lightSymbolsColour = resolveColour([preferences objectForKey:@"lightSymbols"]);
-		darkSymbolsColour = resolveColour([preferences objectForKey:@"darkSymbols"]);
-		hapticFeedbackEnabled = [preferences boolForKey:@"hapticFeedback"];
-		symbolFontScale = [preferences boolForKey:@"smallSymbols"] ? 0.7 : 1.0;
-		[kbPropCache removeAllObjects];
-		[[%c(UIKeyboardCache) sharedInstance] purge];
-		// maybe also [UIKBRenderer clearInternalCaches] ??
+		syncPreferences();
 	}];
+#else
+	preferences = [[NSUserDefaults alloc] _initWithSuiteName:@"org.wuffs.flickplus" container:[NSURL URLWithString:@"/var/mobile"]];
+	// TODO watch for a thing, probably
+	syncPreferences();
+#endif
 
 	// trick thanks to poomsmart
 	// https://github.com/PoomSmart/EmojiPort-Legacy/blob/8573de11226ac2e1c4108c044078109dbfb07a02/KBResizeLegacy.xm
@@ -561,5 +608,8 @@ static NSString *resolveColour(NSString *name) {
 		%init(SpringBoard);
 	}
 
+	if (!IS_IOS_OR_NEWER(iOS_13_0)) {
+		%init(Polyfill12);
+	}
 	%init;
 }
